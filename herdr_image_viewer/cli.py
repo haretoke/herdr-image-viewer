@@ -1,8 +1,10 @@
 """Command line: `viewer` runs the pane process; `publish` adds an image to a
-conversation's history and makes sure a viewer shows that conversation; `gc`
-collects the store now instead of waiting for the next hourly run."""
+conversation's history and makes sure a viewer shows that conversation; `open`
+(the plugin action) reopens the viewer of the focused pane's last conversation;
+`gc` collects the store now instead of waiting for the next hourly run."""
 
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
@@ -21,6 +23,7 @@ def main(argv, environ=None):
     publish.add_argument("--conversation", required=True)
     publish.add_argument("--caller-pane", required=True)
     commands.add_parser("gc", help="remove expired conversations and trim the store")
+    commands.add_parser("open", help="reopen the viewer for the focused pane (plugin action)")
     args = parser.parse_args(argv)
 
     if args.command == "viewer":
@@ -29,6 +32,8 @@ def main(argv, environ=None):
         return app.run_from_environment(environ)
     if args.command == "gc":
         return collect(environ)
+    if args.command == "open":
+        return open_for_focused_pane(environ)
     return publish_image(environ, args.image, args.conversation, args.caller_pane)
 
 
@@ -45,6 +50,25 @@ def publish_image(environ, image, key, caller_pane):
         Store(root).publish(key, Path(image))
     except (safety.UnsafeInput, CapacityError, NewerSchema, OSError) as error:
         return fail(error)
+    launcher.remember_caller(root, environ.get("HERDR_SOCKET_PATH", ""), caller_pane, key)
+    return show(environ, root, key, caller_pane)
+
+
+def open_for_focused_pane(environ):
+    try:
+        pane = json.loads(environ.get("HERDR_PLUGIN_CONTEXT_JSON") or "{}").get("focused_pane_id")
+    except (ValueError, AttributeError):
+        pane = None
+    if not isinstance(pane, str) or not pane:
+        return fail("the action context names no focused pane")
+    root = state.store_root(environ)
+    key = launcher.last_conversation(root, environ.get("HERDR_SOCKET_PATH", ""), pane)
+    if key is None:
+        return fail(f"no images were published from pane {safety.display_text(pane)}")
+    return show(environ, root, key, pane)
+
+
+def show(environ, root, key, caller_pane):
     try:
         status = launcher.ensure_viewer(root, key, caller_pane, launcher.herdr_opener(environ))
     except launcher.OpenFailed as error:

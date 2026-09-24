@@ -164,7 +164,8 @@ error and keeps the existing history.
   input. It notices when its conversation was removed by GC and shows an empty
   view.
 - `cli`: `publish <image> --conversation <key> --caller-pane <id>`, `viewer`,
-  `gc`.
+  `gc`, and `open` (the action: the last conversation published from the
+  focused pane, recorded by `publish` under `run/`).
 - `hooks/claude-read.sh`: the plugin side of the Claude hook (called by the shim).
 - `herdr-plugin.toml`: `viewer` pane entrypoint (split), `open` action,
   `min_herdr_version = "0.9.1"`, platforms linux and macos.
@@ -330,7 +331,7 @@ checks at the end.
 - [x] `publish <image> --conversation K --caller-pane P` stores the image and runs `herdr plugin pane open` (`HERDR_BIN_PATH` first) with the plugin id, the viewer entrypoint, split placement, the caller as target, right, no focus, and the store root, key, and token as env
 - [x] `publish` of an unsafe file, an invalid key, or a full store exits 1 with a message and opens nothing; an open that fails or times out (below the reservation) exits 1
 - [x] `gc` runs the collector once
-- [ ] the `open` action opens the viewer of the last conversation published from the focused pane
+- [x] the `open` action opens the viewer of the last conversation published from the focused pane
 - [ ] the manifest declares the viewer pane and the open action, and `herdr plugin link` of the clone lists both (Mac)
 
 ### hook

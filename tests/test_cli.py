@@ -9,7 +9,7 @@ import time
 import unittest
 from pathlib import Path
 
-from herdr_image_viewer import png
+from herdr_image_viewer import launcher, png
 from herdr_image_viewer.store import Store
 
 REPOSITORY = Path(__file__).resolve().parents[1]
@@ -160,6 +160,38 @@ class CliTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(Store(self.store_root).history("claude:old"), [])
         self.assertEqual(len(Store(self.store_root).history("claude:new")), 1)
+
+    def test_the_open_action_reopens_the_viewer_of_the_last_conversation_published_from_the_focused_pane(self):
+        socket_env = {"HERDR_SOCKET_PATH": str(self.base / "herdr.sock")}
+        self.run_cli("publish", str(self.image), "--conversation", "claude:s1", "--caller-pane", "w1:p3", **socket_env)
+        self.run_cli("publish", str(self.image), "--conversation", "claude:s2", "--caller-pane", "w1:p3", **socket_env)
+        for (_, *argv) in self.herdr_calls():  # both viewers opened and were closed with q
+            _, envs = options(argv)
+            key, token = envs["HERDR_IMAGE_VIEWER_CONVERSATION"], envs["HERDR_IMAGE_VIEWER_TOKEN"]
+            launcher.claim(self.store_root, key, token=token, pane_id="w1:v1").release()
+        self.log.unlink()
+        action_env = {
+            **socket_env,
+            "HERDR_PLUGIN_ID": "haretoke.image-viewer",
+            "HERDR_PLUGIN_STATE_DIR": str(self.store_root),
+            "HERDR_PLUGIN_CONTEXT_JSON": json.dumps({"focused_pane_id": "w1:p3"}),
+        }
+
+        result = self.run_cli("open", **action_env)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        ((_, *argv),) = self.herdr_calls()
+        found, envs = options(argv[3:])
+        self.assertEqual(found["target-pane"], "w1:p3")
+        self.assertEqual(envs["HERDR_IMAGE_VIEWER_CONVERSATION"], "claude:s2")
+
+    def test_the_open_action_from_a_pane_without_images_says_so_and_opens_nothing(self):
+        result = self.run_cli("open", HERDR_SOCKET_PATH=str(self.base / "herdr.sock"),
+                              HERDR_PLUGIN_CONTEXT_JSON=json.dumps({"focused_pane_id": "w1:p7"}))
+
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("no images were published from pane w1:p7", result.stderr)
+        self.assertEqual(self.herdr_calls(), [])
 
 if __name__ == "__main__":
     unittest.main()

@@ -6,6 +6,7 @@ Files under <store root>/run/ (outside the GC-managed conversations):
     <name>.launch.lock    flock held briefly while deciding whether to open
     <name>.reservation    written by the publisher that opens a viewer (expires)
     <name>.registration   written by the viewer that took the viewer lock
+    <caller>.caller       the conversation last published from a pane (open action)
 """
 
 import contextlib
@@ -24,11 +25,14 @@ from .store import write_private_atomically
 FLAGS = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
 
 
-def run_paths(root, key):
+def run_directory(root):
     root = Path(root)
-    run = root / "run"
     safety.private_directory(root)
-    safety.private_directory(run)
+    return safety.private_directory(root / "run")
+
+
+def run_paths(root, key):
+    run = run_directory(root)
     name = keys.directory_name(key)
     return {
         "viewer": run / f"{name}.viewer.lock",
@@ -36,6 +40,24 @@ def run_paths(root, key):
         "reservation": run / f"{name}.reservation",
         "registration": run / f"{name}.registration",
     }
+
+
+def caller_record(root, socket_path, pane_id):
+    return run_directory(root) / f"{keys.directory_name(socket_path + '#' + pane_id)}.caller"
+
+
+def remember_caller(root, socket_path, pane_id, key):
+    document = {"conversation": key}
+    write_private_atomically(caller_record(root, socket_path, pane_id), json.dumps(document).encode("utf-8"))
+
+
+def last_conversation(root, socket_path, pane_id):
+    """The conversation last published from the pane, or None."""
+    try:
+        key = json.loads(caller_record(root, socket_path, pane_id).read_bytes())["conversation"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    return key if isinstance(key, str) and keys.valid_key(key) else None
 
 
 def ensure_viewer(root, key, caller_pane, opener, clock=time.time):
