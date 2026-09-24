@@ -1,7 +1,6 @@
 """The command line as a process, with a fake `herdr` on PATH."""
 
 import json
-import os
 import subprocess
 import sys
 import tempfile

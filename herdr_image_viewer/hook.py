@@ -4,11 +4,10 @@ import contextlib
 import json
 import os
 import signal
-import time
 import traceback
 from pathlib import Path
 
-from . import keys, launcher, limits, safety, state
+from . import keys, launcher, limits, logfile, safety, state
 from .store import CapacityError, NewerSchema
 
 # The formats safety.image_format accepts; other reads never touch the store.
@@ -56,32 +55,6 @@ def claude_read(environ, stdin, budget=limits.HOOK_BUDGET_SECONDS):
     return 0
 
 
-@contextlib.contextmanager
-def time_limit(seconds):
-    """Raise GaveUp in the main thread once seconds have passed."""
-    def give_up(*_):
-        raise GaveUp(f"gave up after {seconds} s")
-
-    previous = signal.signal(signal.SIGALRM, give_up)
-    signal.setitimer(signal.ITIMER_REAL, seconds)
-    try:
-        yield
-    finally:
-        signal.setitimer(signal.ITIMER_REAL, 0)
-        signal.signal(signal.SIGALRM, previous)
-
-
-def log(root, text):
-    path = Path(root) / "hook.log"
-    try:
-        safety.private_directory(path.parent)
-        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND | getattr(os, "O_NOFOLLOW", 0), 0o600)
-        with os.fdopen(descriptor, "a", encoding="utf-8") as handle:
-            handle.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} {text.rstrip()}\n")
-    except (OSError, safety.UnsafeInput):
-        pass  # nowhere left to report it
-
-
 def image_read(payload):
     """The image file a Read payload names, or None for anything else.
 
@@ -99,3 +72,22 @@ def image_read(payload):
         base = payload.get("cwd")
         path = Path(base if isinstance(base, str) and os.path.isabs(base) else os.getcwd()) / path
     return path if path.suffix.lower() in IMAGE_SUFFIXES else None
+
+
+@contextlib.contextmanager
+def time_limit(seconds):
+    """Raise GaveUp in the main thread once seconds have passed."""
+    def give_up(*_):
+        raise GaveUp(f"gave up after {seconds} s")
+
+    previous = signal.signal(signal.SIGALRM, give_up)
+    signal.setitimer(signal.ITIMER_REAL, seconds)
+    try:
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous)
+
+
+def log(root, text):
+    logfile.append(Path(root) / "hook.log", text)

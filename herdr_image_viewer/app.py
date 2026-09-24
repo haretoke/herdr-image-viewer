@@ -5,13 +5,12 @@ import select
 import signal
 import sys
 import termios
-import time
 import traceback
 import tty
 import uuid
 from pathlib import Path
 
-from . import composite, herdr_api, imaging, launcher, safety
+from . import composite, herdr_api, imaging, launcher, logfile, safety
 from .store import Store
 from .viewer import Pane, Renderer, Viewer
 
@@ -164,13 +163,7 @@ def run_from_environment(environ):
 
 
 def log_error(path, text):
-    try:
-        safety.private_directory(path.parent)
-        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND | getattr(os, "O_NOFOLLOW", 0), 0o600)
-        with os.fdopen(descriptor, "a", encoding="utf-8") as handle:
-            handle.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} viewer error\n{text}\n")
-    except OSError:
-        pass  # nowhere left to report it
+    logfile.append(path, f"viewer error\n{text}")
 
 
 def run_viewer(environ, root):
