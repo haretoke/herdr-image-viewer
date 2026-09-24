@@ -231,7 +231,7 @@ checks at the end.
 ### conversation key
 - [x] a Claude hook payload with session_id keys the history by that session
 - [x] without a conversation id the key falls back to the caller pane
-- [ ] keys are validated and hashed before becoming directory names
+- [x] keys are validated and hashed before becoming directory names
 
 ### safety
 - [ ] symlinks, FIFOs, and directories are rejected; content is copied from the opened regular file

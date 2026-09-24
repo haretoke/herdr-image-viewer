@@ -18,6 +18,22 @@ class ConversationKeyTest(unittest.TestCase):
 
         self.assertEqual(key, "pane:/run/herdr.sock#w1:p3")
 
+    def test_an_unusable_session_id_falls_back_to_the_caller_pane(self):
+        for session_id in (None, 42, "", "a\nb", "a\x1b[31m", "x" * 257):
+            with self.subTest(session_id=session_id):
+                key = keys.conversation_key(
+                    {"session_id": session_id}, socket_path="/run/herdr.sock", caller_pane="w1:p3"
+                )
+
+                self.assertEqual(key, "pane:/run/herdr.sock#w1:p3")
+
+    def test_the_directory_name_is_a_hash_of_the_key(self):
+        name = keys.directory_name("claude:../../etc/passwd")
+
+        self.assertRegex(name, r"^[0-9a-f]{32}$")
+        self.assertEqual(name, keys.directory_name("claude:../../etc/passwd"))
+        self.assertNotEqual(name, keys.directory_name("claude:other"))
+
 
 if __name__ == "__main__":
     unittest.main()
