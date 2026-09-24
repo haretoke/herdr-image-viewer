@@ -323,8 +323,8 @@ checks at the end.
 - [x] concurrent publishes and a manual open leave at most one live viewer and no extra panes
 - [x] an open that timed out is not retried while its reservation is live
 - [x] a viewer launched after its reservation expired exits before drawing when another is live
-- [ ] a registration left by a dead viewer is replaced
-- [ ] an old viewer exiting does not remove a newer viewer's registration
+- [x] a registration left by a dead viewer is replaced
+- [x] an old viewer exiting does not remove a newer viewer's registration
 
 ### hook
 - [ ] the plugin hook publishes image files and ignores other files

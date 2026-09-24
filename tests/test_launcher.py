@@ -1,3 +1,4 @@
+import json
 import subprocess
 import sys
 import tempfile
@@ -63,6 +64,41 @@ class EnsureViewerTest(unittest.TestCase):
 
         self.assertEqual(self.ensure(), "running")
         self.assertEqual(self.opener.requests, [])
+
+    def test_a_registration_left_by_a_dead_viewer_is_replaced(self):
+        holder = (
+            "import sys, time\n"
+            "from pathlib import Path\n"
+            "from herdr_image_viewer import launcher\n"
+            "launcher.claim(Path(sys.argv[1]), 'claude:s1', token='dead', pane_id='w1:v1')\n"
+            "print('claimed', flush=True)\n"
+            "time.sleep(60)\n"
+        )
+        repository = Path(__file__).resolve().parents[1]
+        with subprocess.Popen([sys.executable, "-c", holder, str(self.root)],
+                              cwd=repository, stdout=subprocess.PIPE, text=True) as process:
+            try:
+                self.assertEqual(process.stdout.readline().strip(), "claimed")
+            finally:
+                process.kill()  # dies without releasing
+
+        viewer = launcher.claim(self.root, "claude:s1", token="new", pane_id="w1:v2")
+        self.assertIsNotNone(viewer)
+        self.addCleanup(viewer.release)
+        registration = json.loads(launcher.run_paths(self.root, "claude:s1")["registration"].read_bytes())
+        self.assertEqual((registration["token"], registration["pane_id"]), ("new", "w1:v2"))
+
+    def test_an_old_viewer_exiting_does_not_remove_a_newer_viewers_registration(self):
+        old = launcher.claim(self.root, "claude:s1", token="old", pane_id="w1:v1")
+        old.release()
+        newer = launcher.claim(self.root, "claude:s1", token="newer", pane_id="w1:v2")
+        self.addCleanup(newer.release)
+
+        old.release()  # a late second release, e.g. from a signal during shutdown
+
+        registration = launcher.run_paths(self.root, "claude:s1")["registration"]
+        self.assertEqual(json.loads(registration.read_bytes())["token"], "newer")
+        self.assertEqual(self.ensure(), "running")
 
     def test_concurrent_publishes_and_a_manual_open_start_one_viewer(self):
         opens = Path(self.directory.name) / "opens"
