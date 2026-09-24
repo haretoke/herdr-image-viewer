@@ -41,6 +41,18 @@ class Entry:
     published_at: float
 
 
+ENTRY_TYPES = {"sha256": str, "name": str, "source": str, "format": str, "published_at": (int, float)}
+
+
+def valid_entry(item):
+    return (
+        isinstance(item, dict)
+        and set(item) == set(ENTRY_TYPES)
+        and all(isinstance(item[field], kind) for field, kind in ENTRY_TYPES.items())
+        and item["format"] in EXTENSIONS
+    )
+
+
 class Store:
     def __init__(self, root, clock=time.time):
         self.root = Path(root)
@@ -56,11 +68,28 @@ class Store:
         return self.conversation_dir(key) / "archive" / f"{entry.sha256}.{EXTENSIONS[entry.format]}"
 
     def history(self, key):
+        """The entries of a conversation, oldest first; empty if there are none
+        or the history is corrupt."""
+        return self._read_history(key)[1]
+
+    def _read_history(self, key):
+        """Return (status, entries) with status "missing", "ok", or "corrupt"."""
         try:
-            data = json.loads(self.history_path(key).read_text(encoding="utf-8"))
+            data = json.loads(self.history_path(key).read_bytes())
         except FileNotFoundError:
-            return []
-        return [Entry(**item) for item in data["entries"]]
+            return "missing", []
+        except ValueError:
+            return "corrupt", []
+        entries = data.get("entries") if isinstance(data, dict) else None
+        if data.get("schema_version") != SCHEMA_VERSION if isinstance(data, dict) else True:
+            return "corrupt", []
+        if not isinstance(entries, list) or not all(map(valid_entry, entries)):
+            return "corrupt", []
+        return "ok", [Entry(**item) for item in entries]
+
+    def _set_aside(self, key):
+        path = self.history_path(key)
+        os.replace(path, path.with_name(f"history.corrupt-{int(self.clock())}-{uuid.uuid4().hex[:8]}.json"))
 
     def publish(self, key, source_path):
         """Archive the image and record it as the newest entry of the history.
@@ -85,8 +114,12 @@ class Store:
                     published_at=self.clock(),
                 )
                 os.replace(temporary, self.archive_path(key, entry))
+                status, current = self._read_history(key)
+                if status == "corrupt":
+                    # Keep it (and every archive file) for inspection; start over.
+                    self._set_aside(key)
                 # The same content published again moves to the newest position.
-                entries = [old for old in self.history(key) if old.sha256 != entry.sha256] + [entry]
+                entries = [old for old in current if old.sha256 != entry.sha256] + [entry]
                 kept, dropped = entries[-limits.MAX_HISTORY:], entries[:-limits.MAX_HISTORY]
                 self._write_history(key, kept)
                 # Only after the history no longer references them.

@@ -249,7 +249,7 @@ checks at the end.
 - [x] concurrent publishes to one conversation do not lose entries
 - [x] an entry stays viewable from the archive after its source is deleted
 - [x] a crash after archiving but before replacing the history leaves the old history intact
-- [ ] a corrupt history is moved aside and its archives are kept
+- [x] a corrupt history is moved aside and its archives are kept
 - [ ] a history with an unknown schema version is neither modified nor collected
 - [ ] GC removes conversations whose `updated_at` is older than 14 days (boundary ±1 s)
 - [ ] GC trims the total below 500 MiB oldest first (boundary ±1 byte) and skips locked conversations

@@ -161,6 +161,22 @@ class StoreTest(unittest.TestCase):
         leftovers = [path.name for path in conversation.rglob(".*") if path.is_file()]
         self.assertEqual(leftovers, [])
 
+    def test_a_corrupt_history_is_moved_aside_and_its_archives_are_kept(self):
+        old = self.store.publish("claude:s1", self.image("old.png", PNG + b"old"))
+        old_archive = self.store.archive_path("claude:s1", old)
+        history_path = self.store.history_path("claude:s1")
+        for corrupt in (b"{not json", b"[1, 2, 3]", b'{"schema_version": 1, "entries": [{"x": 1}]}'):
+            with self.subTest(corrupt=corrupt):
+                history_path.write_bytes(corrupt)
+
+                self.assertEqual(self.store.history("claude:s1"), [])
+                self.store.publish("claude:s1", self.image("new.png", PNG + corrupt))
+
+                self.assertEqual([e.name for e in self.store.history("claude:s1")], ["new.png"])
+                aside = sorted(history_path.parent.glob("history.corrupt-*.json"))
+                self.assertIn(corrupt, [path.read_bytes() for path in aside])
+                self.assertTrue(old_archive.exists())
+
 
 if __name__ == "__main__":
     unittest.main()
