@@ -47,6 +47,9 @@ def thumb_size(cell_w, cell_h):
 
 
 def compute(cols, rows, cell_w, cell_h, count):
+    """The layout for a pane, or None while its size or cell size is unknown."""
+    if not all(isinstance(value, int) and value > 0 for value in (cols, rows, cell_w, cell_h)):
+        return None
     thumb_cols, thumb_rows = thumb_size(cell_w, cell_h)
     if rows * cell_h >= cols * cell_w:
         result = below(cols, rows, thumb_cols, thumb_rows)

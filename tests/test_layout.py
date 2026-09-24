@@ -51,6 +51,18 @@ class LayoutTest(unittest.TestCase):
         self.assertIsNone(result.grid)
         self.assertEqual(result.main, Rect(col=0, row=1, cols=60, rows=39))
 
+    def test_unknown_or_zero_sizes_produce_no_layout(self):
+        for cols, rows, cell_w, cell_h in (
+            (0, 40, CELL_W, CELL_H),
+            (60, 0, CELL_W, CELL_H),
+            (60, 40, 0, CELL_H),
+            (60, 40, CELL_W, None),
+            (None, 40, CELL_W, CELL_H),
+            (60, -1, CELL_W, CELL_H),
+        ):
+            with self.subTest(size=(cols, rows, cell_w, cell_h)):
+                self.assertIsNone(layout.compute(cols=cols, rows=rows, cell_w=cell_w, cell_h=cell_h, count=3))
+
 
 if __name__ == "__main__":
     unittest.main()

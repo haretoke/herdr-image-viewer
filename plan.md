@@ -266,7 +266,7 @@ checks at the end.
 - [x] a wide pane places the grid in columns on the right
 - [x] a pane below the minimum size shows no thumbnails
 - [x] an empty history lays out a placeholder
-- [ ] unknown or zero pty or cell sizes produce no layout (wait for the next size)
+- [x] unknown or zero pty or cell sizes produce no layout (wait for the next size)
 - [ ] h/j/k/l move left/down/up/right and stop only at the ends of the history
 - [ ] moving past the visible page shows the next or previous page
 - [ ] a move onto a ragged last row lands on the nearest existing cell
