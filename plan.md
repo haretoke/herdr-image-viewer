@@ -237,7 +237,7 @@ checks at the end.
 - [x] symlinks, FIFOs, and directories are rejected; content is copied from the opened regular file
 - [x] files whose magic bytes are not a supported image are rejected
 - [x] files above the size or pixel caps are rejected
-- [ ] storage directories are 0700 and files 0600; foreign-owned or symlinked storage is refused
+- [x] storage directories are 0700 and files 0600; foreign-owned or symlinked storage is refused
 - [ ] control characters in file names never reach the title
 
 ### store

@@ -48,6 +48,29 @@ def image_format(head):
     raise UnsafeInput("not a supported image (PNG, JPEG, GIF, WebP, BMP, TIFF, HEIC)")
 
 
+def private_directory(path, uid=None):
+    """Create a 0700 directory, or tighten an existing one this user owns.
+
+    A symlink or a directory owned by someone else is refused rather than used.
+    """
+    uid = os.getuid() if uid is None else uid
+    os.makedirs(path, mode=0o700, exist_ok=True)
+    status = os.lstat(path)
+    if stat.S_ISLNK(status.st_mode) or not stat.S_ISDIR(status.st_mode):
+        raise UnsafeInput(f"storage {os.fspath(path)!r} is not a plain directory")
+    if status.st_uid != uid:
+        raise UnsafeInput(f"storage {os.fspath(path)!r} belongs to another user")
+    if stat.S_IMODE(status.st_mode) != 0o700:
+        os.chmod(path, 0o700)
+    return path
+
+
+def create_private_file(path):
+    """Create a new 0600 file for writing; never follows or reuses an existing path."""
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    return os.fdopen(os.open(path, flags, 0o600), "wb")
+
+
 def open_source(path):
     """Open a regular file for reading, refusing symlinks, FIFOs, and devices.
 

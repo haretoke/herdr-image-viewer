@@ -57,6 +57,52 @@ class ImageFormatTest(unittest.TestCase):
                     safety.image_format(head)
 
 
+class PrivateStorageTest(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.root = Path(self.directory.name)
+        self.saved_umask = os.umask(0o022)
+
+    def tearDown(self):
+        os.umask(self.saved_umask)
+        self.directory.cleanup()
+
+    def mode(self, path):
+        return os.stat(path).st_mode & 0o777
+
+    def test_storage_directories_are_created_or_tightened_to_0700(self):
+        created = self.root / "state"
+        existing = self.root / "loose"
+        existing.mkdir(mode=0o755)
+
+        safety.private_directory(created)
+        safety.private_directory(existing)
+
+        self.assertEqual(self.mode(created), 0o700)
+        self.assertEqual(self.mode(existing), 0o700)
+
+    def test_symlinked_or_foreign_owned_storage_is_refused(self):
+        real = self.root / "real"
+        real.mkdir(mode=0o700)
+        link = self.root / "link"
+        link.symlink_to(real, target_is_directory=True)
+        with self.assertRaises(safety.UnsafeInput):
+            safety.private_directory(link)
+        with self.assertRaises(safety.UnsafeInput):
+            safety.private_directory(real, uid=os.getuid() + 1)
+
+    def test_files_are_created_0600_whatever_the_umask(self):
+        os.umask(0)
+        path = self.root / "history.json"
+
+        with safety.create_private_file(path) as handle:
+            handle.write(b"{}")
+
+        self.assertEqual(self.mode(path), 0o600)
+        with self.assertRaises(FileExistsError):
+            safety.create_private_file(path)
+
+
 class CapsTest(unittest.TestCase):
     def test_files_above_the_size_cap_are_rejected(self):
         safety.check_size(limits.MAX_INPUT_BYTES)
