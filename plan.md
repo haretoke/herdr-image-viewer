@@ -373,8 +373,8 @@ checks at the end.
 ### integration (devcon-herdr)
 - [x] an old plugin lock without the image viewer still pins the other plugins, and the image viewer uses its bootstrap release
 - [x] `devcon-herdr plugins update` locks the plugin's latest release
-- [ ] devcon-herdr installs the locked commit on the Mac and in a container and skips it when already current
-- [ ] a locally linked plugin (development on the Mac) is reported and left alone; Herdr refuses to install over a link
+- [x] devcon-herdr installs the locked commit on the Mac and in a container and skips it when already current
+- [x] a locally linked plugin (development on the Mac) is reported and left alone; Herdr refuses to install over a link
 - [ ] a failed install keeps the previous version
 - [ ] the shared hook shim calls the plugin where it is installed and falls back to the old preview path where it is not (Mac, WSL2 host, container)
 - [ ] the shim keeps the hook's file name and settings entry, so registration stays idempotent and keeps other settings (the existing registrar tests)
