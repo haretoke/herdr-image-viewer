@@ -187,7 +187,13 @@ checks at the end.
       74x31 vs 63x31; container 140x40 vs 70x40). `HERDR_PLUGIN_CONTEXT_JSON`
       named the target pane as `focused_pane_id`, not the pane the user had
       focused.
-- [ ] the plugin pane closes when its command exits (q and a crash)
+- [x] the plugin pane closes when its command exits (q and a crash)
+      (2026-09-24, Mac local and container session): after `q` (exit 0), an
+      uncaught exception (exit 1), and SIGKILL the pane closed within 4 s and
+      the target pane took back the full width (63→126, 70→140). So q closes
+      the viewer pane itself and the next publish reopens it, and graphics
+      layers go away with the pane. A crash leaves nothing on screen, so the
+      viewer must log errors to a file under the state directory.
 - [ ] two streams with different layer ids draw on one pane at the same time
 - [ ] the computed state directory equals `HERDR_PLUGIN_STATE_DIR` inside a plugin pane
 - [ ] thumbnail RGBA can be obtained on the Mac (sips BMP) and in the container (magick RGBA)
