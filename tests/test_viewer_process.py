@@ -16,7 +16,7 @@ import time
 import unittest
 from pathlib import Path
 
-from herdr_image_viewer import png
+from herdr_image_viewer import launcher, png
 from herdr_image_viewer.store import Store
 from tests.test_imaging import FAKE_TOOL
 
@@ -196,6 +196,15 @@ class ViewerProcessTest(unittest.TestCase):
         self.assertIn("Traceback", log)
         self.assertIn(b"\x1b[?1049l", self.output)  # the terminal was still restored
         self.assertEqual((self.store_root / "viewer.log").stat().st_mode & 0o777, 0o600)
+
+    def test_a_viewer_exits_before_drawing_when_another_is_live(self):
+        live = launcher.claim(self.store_root, "claude:s1", token="live", pane_id="w1:p8")
+        self.addCleanup(live.release)
+        pid, master = self.start()
+
+        self.assertEqual(self.wait_exit(pid, master), 0)
+        self.assertEqual(self.herdr.events, [])
+        self.assertNotIn(b"\x1b[?1049h", self.output)
 
     def test_the_pane_going_away_ends_the_viewer(self):
         pid, master = self.start()

@@ -8,9 +8,10 @@ import termios
 import time
 import traceback
 import tty
+import uuid
 from pathlib import Path
 
-from . import composite, herdr_api, imaging, safety
+from . import composite, herdr_api, imaging, launcher, safety
 from .store import Store
 from .viewer import Pane, Renderer, Viewer
 
@@ -173,8 +174,19 @@ def log_error(path, text):
 
 
 def run_viewer(environ, root):
-    store = Store(root)
     key = environ["HERDR_IMAGE_VIEWER_CONVERSATION"]
+    token = environ.get("HERDR_IMAGE_VIEWER_TOKEN") or uuid.uuid4().hex
+    hold = launcher.claim(root, key, token, environ["HERDR_PANE_ID"])
+    if hold is None:
+        return 0  # another viewer shows this conversation: leave without drawing
+    try:
+        return show(environ, root, key)
+    finally:
+        hold.release()
+
+
+def show(environ, root, key):
+    store = Store(root)
     terminal = Terminal()
     display = HerdrDisplay(environ["HERDR_SOCKET_PATH"], environ["HERDR_PANE_ID"], terminal)
 
