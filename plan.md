@@ -285,7 +285,7 @@ checks at the end.
 - [x] an image is resized to an exact pixel size with the available tool
 - [x] resizing gives up after its time limit and reports an error
 - [x] a GIF or TIFF converts its first frame
-- [ ] EXIF orientation is applied
+- [x] EXIF orientation is applied
 - [ ] thumbnail pixels are read as RGBA and a wrong length is rejected
 
 ### herdr_api

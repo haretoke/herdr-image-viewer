@@ -1,6 +1,7 @@
 import json
 import os
 import shutil
+import struct
 import sys
 import tempfile
 import time
@@ -63,6 +64,14 @@ def solid_png(width, height, rgb=(10, 20, 30)):
     return png.encode_rgb(width, height, bytes(rgb) * (width * height))
 
 
+def jpeg_with_orientation(orientation):
+    """SOI + an APP1 Exif segment whose IFD0 has only the Orientation tag."""
+    tiff = b"MM\x00\x2a" + struct.pack(">I", 8) + struct.pack(">H", 1)
+    tiff += struct.pack(">HHIHH", 0x0112, 3, 1, orientation, 0) + struct.pack(">I", 0)
+    segment = b"Exif\x00\x00" + tiff
+    return b"\xff\xd8" + b"\xff\xe1" + struct.pack(">H", len(segment) + 2) + segment + b"\xff\xd9"
+
+
 class PngSizeTest(unittest.TestCase):
     def test_png_dimensions_are_read_from_the_header(self):
         self.assertEqual(imaging.png_size(solid_png(7, 3)), (7, 3))
@@ -120,6 +129,22 @@ class ConvertTest(FakeToolsTest):
                 call = self.calls()[-1]
                 inputs = [argument for argument in call if argument.endswith("[0]")]
                 self.assertEqual(len(inputs), 1, call)
+
+    def test_exif_orientation_is_applied(self):
+        rotated = jpeg_with_orientation(6)  # stored sideways: rotate 90 degrees clockwise
+        self.assertEqual(imaging.exif_orientation(rotated), 6)
+        self.assertEqual(imaging.exif_orientation(jpeg_with_orientation(1)), 1)
+        self.assertEqual(imaging.exif_orientation(b"\xff\xd8\xff\xe0\x00\x02"), 1)
+
+        self.install("magick")
+        imaging.to_png(rotated, "jpeg")
+        self.assertIn("-auto-orient", self.calls()[-1])
+
+        self.install("sips")
+        imaging.to_png(rotated, "jpeg")
+        call = self.calls()[-1]
+        self.assertEqual(call[0], "sips")
+        self.assertEqual(call[call.index("-r") + 1], "90")
 
     def test_a_png_is_returned_as_it_is(self):
         data = solid_png(3, 3)
