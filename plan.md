@@ -220,7 +220,13 @@ checks at the end.
       premultiplied). `magick src -resize 40x20! -depth 8 RGBA:-` returned
       exactly 3200 bytes of straight RGBA with exact colors. The BMP reader
       must honor the row order sign and reject masks other than these.
-- [ ] `herdr plugin link` of the local clone works for development and survives a Herdr server restart
+- [x] `herdr plugin link` of the local clone works for development and survives a Herdr server restart
+      (2026-09-24, Mac, the spike plugin directory standing in for the clone,
+      which has no manifest yet): after linking, a throwaway named session
+      listed the plugin and opened its pane; after `server stop` and a new
+      server start the plugin was still listed and its pane opened again.
+      Link registrations are global to the user, so the main server needs no
+      restart to test this.
 
 ### conversation key
 - [ ] a Claude hook payload with session_id keys the history by that session
