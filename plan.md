@@ -282,7 +282,7 @@ checks at the end.
 
 ### imaging
 - [x] PNG dimensions are read from the header; truncated PNGs are rejected
-- [ ] an image is resized to an exact pixel size with the available tool
+- [x] an image is resized to an exact pixel size with the available tool
 - [ ] resizing gives up after its time limit and reports an error
 - [ ] a GIF or TIFF converts its first frame
 - [ ] EXIF orientation is applied

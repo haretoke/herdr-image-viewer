@@ -1,6 +1,61 @@
+import json
+import os
+import shutil
+import sys
+import tempfile
 import unittest
+from pathlib import Path
+from unittest import mock
 
 from herdr_image_viewer import imaging, png
+
+# Fake converters: record argv, then write a solid PNG of the requested size to
+# the output path (sips: --resampleHeightWidth H W ... --out OUT; magick:
+# -resize WxH! ... OUT). FAKE_SLEEP makes them hang.
+FAKE_TOOL = """#!/usr/bin/env python3
+import json, os, sys, time, zlib, struct
+arguments = sys.argv[1:]
+with open(os.environ["FAKE_LOG"], "a") as log:
+    log.write(json.dumps([os.path.basename(sys.argv[0])] + arguments) + "\\n")
+time.sleep(float(os.environ.get("FAKE_SLEEP", "0")))
+if "--resampleHeightWidth" in arguments:
+    at = arguments.index("--resampleHeightWidth")
+    height, width = int(arguments[at + 1]), int(arguments[at + 2])
+    out = arguments[arguments.index("--out") + 1]
+else:
+    width, height = map(int, arguments[arguments.index("-resize") + 1].rstrip("!").split("x"))
+    out = arguments[-1].split(":", 1)[-1]
+def chunk(kind, data):
+    return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+rows = (b"\\x00" + b"\\x01\\x02\\x03" * width) * height
+open(out, "wb").write(b"\\x89PNG\\r\\n\\x1a\\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+                     + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b""))
+"""
+
+
+class FakeToolsTest(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.bin = Path(self.directory.name) / "bin"
+        self.bin.mkdir()
+        (self.bin / "python3").symlink_to(sys.executable)
+        self.log = Path(self.directory.name) / "calls.jsonl"
+        patcher = mock.patch.dict(os.environ, {"PATH": str(self.bin), "FAKE_LOG": str(self.log)})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def tearDown(self):
+        self.directory.cleanup()
+
+    def install(self, *names):
+        for name in names:
+            path = self.bin / name
+            path.write_text(FAKE_TOOL)
+            path.chmod(0o755)
+
+    def calls(self):
+        return [json.loads(line) for line in self.log.read_text().splitlines()]
+
 
 
 def solid_png(width, height, rgb=(10, 20, 30)):
@@ -22,6 +77,25 @@ class PngSizeTest(unittest.TestCase):
             with self.subTest(name):
                 with self.assertRaises(imaging.ImagingError):
                     imaging.png_size(data)
+
+
+class ResizeTest(FakeToolsTest):
+    def test_an_image_is_resized_to_an_exact_pixel_size_with_the_available_tool(self):
+        self.install("magick")
+        resized = imaging.resize(solid_png(40, 20), 10, 5)
+
+        self.assertEqual(imaging.png_size(resized), (10, 5))
+        (call,) = self.calls()
+        self.assertEqual(call[0], "magick")
+        self.assertIn("10x5!", call)
+        self.assertIn("-limit", call)
+
+    def test_sips_is_preferred_when_present(self):
+        self.install("magick", "sips")
+        resized = imaging.resize(solid_png(40, 20), 12, 6)
+
+        self.assertEqual(imaging.png_size(resized), (12, 6))
+        self.assertEqual([call[0] for call in self.calls()], ["sips"])
 
 
 if __name__ == "__main__":
