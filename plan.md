@@ -211,7 +211,15 @@ checks at the end.
       so they could still disagree if `XDG_STATE_HOME` differed; `publish`
       therefore passes the store root it resolved to the viewer through the
       open request's env, and the viewer uses that.
-- [ ] thumbnail RGBA can be obtained on the Mac (sips BMP) and in the container (magick RGBA)
+- [x] thumbnail RGBA can be obtained on the Mac (sips BMP) and in the container (magick RGBA)
+      (2026-09-24, 200x100 RGBA source with a half-transparent quadrant
+      resized to 40x20): `sips -s format bmp --resampleHeightWidth` wrote a
+      BITMAPV5HEADER (124 bytes), 32 bpp, BI_BITFIELDS with masks R ff0000,
+      G ff00, B ff, A ff000000 (BGRA bytes), stored top-down (negative
+      height); colors matched within 1 and alpha 128 stayed straight (not
+      premultiplied). `magick src -resize 40x20! -depth 8 RGBA:-` returned
+      exactly 3200 bytes of straight RGBA with exact colors. The BMP reader
+      must honor the row order sign and reject masks other than these.
 - [ ] `herdr plugin link` of the local clone works for development and survives a Herdr server restart
 
 ### conversation key
