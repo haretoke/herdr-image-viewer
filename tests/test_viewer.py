@@ -37,6 +37,21 @@ class SelectionTest(unittest.TestCase):
         self.assertTrue(selection.has_new)
         self.assertEqual(selection.title(size=(10, 10)), "2/4 2.png 10x10 [new]")
 
+    def test_moving_back_to_the_newest_image_follows_again_and_clears_new(self):
+        selection = Selection()
+        selection.update([entry(1), entry(2), entry(3)])
+        selection.move("left", grid=None)
+        selection.update([entry(1), entry(2), entry(3), entry(4)])
+
+        selection.move("right", grid=None)
+        selection.move("right", grid=None)
+
+        self.assertEqual(selection.current(), entry(4))
+        self.assertTrue(selection.follow_latest)
+        self.assertFalse(selection.has_new)
+        selection.update([entry(1), entry(2), entry(3), entry(4), entry(5)])
+        self.assertEqual(selection.current(), entry(5))
+
 
 if __name__ == "__main__":
     unittest.main()

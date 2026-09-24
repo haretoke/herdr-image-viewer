@@ -33,6 +33,8 @@ class Selection:
         target = layout.move(grid, len(self.entries), position, direction)
         self.selected = self.entries[target].sha256
         self.follow_latest = target == len(self.entries) - 1
+        if self.follow_latest:
+            self.has_new = False
 
     def index(self):
         for position, entry in enumerate(self.entries):
