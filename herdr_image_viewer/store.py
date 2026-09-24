@@ -80,9 +80,9 @@ class Store:
             return "missing", []
         except ValueError:
             return "corrupt", []
-        entries = data.get("entries") if isinstance(data, dict) else None
-        if data.get("schema_version") != SCHEMA_VERSION if isinstance(data, dict) else True:
+        if not isinstance(data, dict) or data.get("schema_version") != SCHEMA_VERSION:
             return "corrupt", []
+        entries = data.get("entries")
         if not isinstance(entries, list) or not all(map(valid_entry, entries)):
             return "corrupt", []
         return "ok", [Entry(**item) for item in entries]
