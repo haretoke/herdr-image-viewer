@@ -255,6 +255,43 @@ class GcTest(StoreFixture):
         self.assertFalse(self.store.conversation_dir("claude:oldest").exists())
         self.assertTrue(self.store.conversation_dir("claude:newest").exists())
 
+    def test_concurrent_gc_runs_and_a_publish_elsewhere_stay_consistent(self):
+        for number in range(40):
+            self.store.publish(f"claude:old-{number}", self.image(f"{number}.png", PNG + bytes([number])))
+        later = self.now + 15 * DAY
+        start = self.base / "start"
+        preamble = (
+            "import sys, time\n"
+            "from pathlib import Path\n"
+            "from herdr_image_viewer.store import Store\n"
+            "root, now, start = sys.argv[1], float(sys.argv[2]), sys.argv[3]\n"
+            "store = Store(root, clock=lambda: now)\n"
+            "while not Path(start).exists():\n"
+            "    time.sleep(0.001)\n"
+        )
+        gc_worker = preamble + "store.gc()\n"
+        publish_worker = preamble + (
+            "for source in sys.argv[4:]:\n"
+            "    store.publish('claude:fresh', source)\n"
+        )
+        fresh = [str(self.image(f"fresh-{n}.png", PNG + b"fresh" + bytes([n]))) for n in range(10)]
+        repository = Path(__file__).resolve().parents[1]
+        arguments = [str(self.base / "state"), str(later), str(start)]
+        workers = [
+            subprocess.Popen([sys.executable, "-c", gc_worker, *arguments], cwd=repository, stderr=subprocess.PIPE),
+            subprocess.Popen([sys.executable, "-c", gc_worker, *arguments], cwd=repository, stderr=subprocess.PIPE),
+            subprocess.Popen([sys.executable, "-c", publish_worker, *arguments, *fresh], cwd=repository, stderr=subprocess.PIPE),
+        ]
+        time.sleep(0.5)
+        start.touch()
+        for process in workers:
+            _, error = process.communicate(timeout=60)
+            self.assertEqual(process.returncode, 0, error.decode())
+
+        remaining = sorted(p.name for p in (self.base / "state" / "conversations").iterdir())
+        self.assertEqual(remaining, [self.store.conversation_dir("claude:fresh").name])
+        self.assertEqual(len(self.store.history("claude:fresh")), 10)
+
 
 if __name__ == "__main__":
     unittest.main()
