@@ -292,7 +292,7 @@ checks at the end.
       it writes for sources with alpha)
 
 ### herdr_api
-- [ ] opening a stream waits for the ok reply
+- [x] opening a stream waits for the ok reply
 - [ ] a rejected frame is reported and closes the stream
 - [ ] an EOF between frames is noticed without sending a frame
 - [ ] frames respect 16 MiB (limit -1/0/+1)
