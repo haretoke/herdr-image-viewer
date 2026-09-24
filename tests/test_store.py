@@ -197,5 +197,21 @@ class StoreTest(StoreFixture):
         self.assertEqual([p.name for p in archive.iterdir() if p.name.startswith(".")], [])
 
 
+DAY = 24 * 60 * 60
+
+
+class GcTest(StoreFixture):
+    def test_gc_removes_conversations_not_updated_for_more_than_14_days(self):
+        self.store.publish("claude:expired", self.image("a.png", PNG + b"a"))
+        self.now += 1
+        self.store.publish("claude:kept", self.image("b.png", PNG + b"b"))
+        self.now += 14 * DAY  # "expired" is 14 days + 1 s old, "kept" exactly 14 days
+
+        self.store.gc()
+
+        self.assertFalse(self.store.conversation_dir("claude:expired").exists())
+        self.assertEqual([e.name for e in self.store.history("claude:kept")], ["b.png"])
+
+
 if __name__ == "__main__":
     unittest.main()

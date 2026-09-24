@@ -253,7 +253,7 @@ checks at the end.
 - [x] a history with an unknown schema version is neither modified nor collected
       (publish raises NewerSchema before touching anything; collection is
       covered by the GC test below)
-- [ ] GC removes conversations whose `updated_at` is older than 14 days (boundary ±1 s)
+- [x] GC removes conversations whose `updated_at` is older than 14 days (boundary ±1 s)
 - [ ] GC never collects a conversation with a newer-schema or set-aside corrupt history
 - [ ] GC trims the total below 500 MiB oldest first (boundary ±1 byte) and skips locked conversations
 - [ ] two GC runs at once and GC during a publish to another conversation stay consistent

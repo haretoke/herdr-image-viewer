@@ -12,6 +12,7 @@ import fcntl
 import hashlib
 import json
 import os
+import shutil
 import time
 import uuid
 from dataclasses import asdict, dataclass
@@ -48,6 +49,32 @@ class Entry:
 ENTRY_TYPES = {"sha256": str, "name": str, "source": str, "format": str, "published_at": (int, float)}
 
 
+def read_history_file(path):
+    """Return (status, entries, updated_at) with status "missing", "ok",
+    "corrupt", or "newer" (written by a newer version: never modified or
+    collected)."""
+    try:
+        data = json.loads(Path(path).read_bytes())
+    except FileNotFoundError:
+        return "missing", [], None
+    except ValueError:
+        return "corrupt", [], None
+    version = data.get("schema_version") if isinstance(data, dict) else None
+    if isinstance(version, int) and not isinstance(version, bool) and version > SCHEMA_VERSION:
+        return "newer", [], None
+    if version != SCHEMA_VERSION:
+        return "corrupt", [], None
+    entries = data.get("entries")
+    updated_at = data.get("updated_at")
+    if (
+        not isinstance(entries, list)
+        or not all(map(valid_entry, entries))
+        or not isinstance(updated_at, (int, float))
+    ):
+        return "corrupt", [], None
+    return "ok", [Entry(**item) for item in entries], updated_at
+
+
 def valid_entry(item):
     return (
         isinstance(item, dict)
@@ -77,23 +104,25 @@ class Store:
         return self._read_history(key)[1]
 
     def _read_history(self, key):
-        """Return (status, entries) with status "missing", "ok", "corrupt", or
-        "newer" (written by a newer version: never modified or collected)."""
-        try:
-            data = json.loads(self.history_path(key).read_bytes())
-        except FileNotFoundError:
-            return "missing", []
-        except ValueError:
-            return "corrupt", []
-        version = data.get("schema_version") if isinstance(data, dict) else None
-        if isinstance(version, int) and not isinstance(version, bool) and version > SCHEMA_VERSION:
-            return "newer", []
-        if version != SCHEMA_VERSION:
-            return "corrupt", []
-        entries = data.get("entries")
-        if not isinstance(entries, list) or not all(map(valid_entry, entries)):
-            return "corrupt", []
-        return "ok", [Entry(**item) for item in entries]
+        status, entries, _ = read_history_file(self.history_path(key))
+        return status, entries
+
+    def gc(self):
+        """Remove conversations not updated for more than the GC age."""
+        conversations = self.root / "conversations"
+        if not conversations.is_dir():
+            return
+        for directory in conversations.iterdir():
+            if not self._expired(directory):
+                continue
+            with self._lock(directory.name, blocking=False) as held:
+                # Skip one being written; re-check once nothing can change it.
+                if held and self._expired(directory):
+                    shutil.rmtree(directory)
+
+    def _expired(self, directory):
+        status, _, updated_at = read_history_file(directory / "history.json")
+        return status == "ok" and self.clock() - updated_at > limits.GC_MAX_AGE_SECONDS
 
     def _set_aside(self, key):
         path = self.history_path(key)
@@ -147,11 +176,23 @@ class Store:
 
     @contextlib.contextmanager
     def _conversation_lock(self, key):
+        with self._lock(keys.directory_name(key)):
+            yield
+
+    @contextlib.contextmanager
+    def _lock(self, name, blocking=True):
+        """Hold locks/<name>.lock; yield whether it was acquired."""
+        safety.private_directory(self.root)
         safety.private_directory(self.root / "locks")
         flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
-        with os.fdopen(os.open(self.lock_path(key), flags, 0o600), "r+b") as handle:
-            fcntl.flock(handle, fcntl.LOCK_EX)
-            yield
+        path = self.root / "locks" / f"{name}.lock"
+        with os.fdopen(os.open(path, flags, 0o600), "r+b") as handle:
+            try:
+                fcntl.flock(handle, fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
+            except BlockingIOError:
+                yield False
+                return
+            yield True
 
     def _copy_in(self, source_path, archive_dir):
         """Copy the source into a new temp file; return it with its hash and format."""
