@@ -117,6 +117,32 @@ class StreamFrameTest(unittest.TestCase):
                                   "data_length": 9, "placement": PLACEMENT})
         self.assertEqual(length, 9)
 
+    def test_an_eof_between_frames_is_noticed_without_sending_a_frame(self):
+        closed = threading.Event()
+
+        def handler(fake, connection, reader, request):
+            fake.reply(connection, request)
+            connection.shutdown(socket.SHUT_RDWR)  # Herdr dropped the stream (pane closed, restart)
+            closed.set()
+
+        fake, stream = self.open_stream(handler)
+        self.assertTrue(closed.wait(5))
+        time.sleep(0.05)
+
+        self.assertIsNotNone(stream.lost())
+        self.assertFalse(stream.is_open())
+        self.assertEqual(fake.frames, [])
+
+    def test_a_healthy_idle_stream_is_not_lost(self):
+        def handler(fake, connection, reader, request):
+            fake.reply(connection, request)
+            reader.readline()
+
+        _, stream = self.open_stream(handler)
+
+        self.assertIsNone(stream.lost())
+        self.assertTrue(stream.is_open())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -71,6 +71,22 @@ class GraphicsStream:
     def is_open(self):
         return self.client is not None
 
+    def lost(self):
+        """Without blocking: why an open stream ended (a late rejection or EOF),
+        closing it, or None while it is healthy or was never opened."""
+        if self.client is None:
+            return None
+        try:
+            if not select.select([self.client], [], [], 0)[0]:
+                return None
+            line = self.reader.readline(MAX_LINE_BYTES + 1)
+        except (OSError, ValueError) as error:
+            reason = f"the graphics stream failed: {error}"
+        else:
+            reason = rejection(line) or "unexpected reply"
+        self.close()
+        return reason
+
     def send(self, data, width, height, placement, image_format="png"):
         """Send one frame; a rejection closes the stream and raises HerdrError."""
         if self.client is None:
