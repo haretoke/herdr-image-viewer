@@ -9,6 +9,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from herdr_image_viewer.safety import UnsafeInput
 from herdr_image_viewer.store import CapacityError, NewerSchema, Store
 
 # 40 bytes: the signature and an IHDR chunk declaring 2x1 pixels (no image data).
@@ -137,6 +138,23 @@ class StoreTest(StoreFixture):
 
         names = sorted(entry.name for entry in self.store.history("claude:s1"))
         self.assertEqual(names, sorted(f"{number}.png" for number in range(12)))
+
+    def test_an_image_above_the_pixel_cap_or_of_unreadable_size_is_refused_before_it_enters_the_history(self):
+        self.store.publish("claude:s1", self.image("kept.png"))
+        cases = {
+            "above the cap": b"GIF89a" + struct.pack("<HH", 20000, 5001) + bytes(3),
+            "no pixels": b"GIF89a" + struct.pack("<HH", 0, 10) + bytes(3),
+            "truncated header": b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIH",
+            "no frame header": b"\xff\xd8\xff\xe0\x00\x04\x00\x00\xff\xd9",
+        }
+        for label, content in cases.items():
+            with self.subTest(label):
+                with self.assertRaises(UnsafeInput):
+                    self.store.publish("claude:s1", self.image("refused.img", content))
+
+                self.assertEqual([entry.name for entry in self.store.history("claude:s1")], ["kept.png"])
+                archive = self.store.conversation_dir("claude:s1") / "archive"
+                self.assertEqual(len(list(archive.iterdir())), 1)  # no temp file left behind
 
     def test_an_entry_stays_viewable_from_the_archive_after_its_source_is_deleted(self):
         source = self.image("scratch.png", PNG + b"temporary screenshot")

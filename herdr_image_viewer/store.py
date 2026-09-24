@@ -19,7 +19,7 @@ import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from . import keys, limits, safety
+from . import dimensions, keys, limits, safety
 
 SCHEMA_VERSION = 1
 EXTENSIONS = {
@@ -338,6 +338,9 @@ class Store:
                     chunk = source.read(COPY_CHUNK)
                 target.flush()
                 os.fsync(target.fileno())
+            # From the copy that will be archived, before any converter sees it.
+            with open(temporary, "rb") as copied_file:
+                safety.check_pixels(*dimensions.image_size(copied_file, image_format))
         except BaseException:
             temporary.unlink(missing_ok=True)
             raise
