@@ -234,7 +234,7 @@ checks at the end.
 - [x] keys are validated and hashed before becoming directory names
 
 ### safety
-- [ ] symlinks, FIFOs, and directories are rejected; content is copied from the opened regular file
+- [x] symlinks, FIFOs, and directories are rejected; content is copied from the opened regular file
 - [ ] files whose magic bytes are not a supported image are rejected
 - [ ] files above the size or pixel caps are rejected
 - [ ] storage directories are 0700 and files 0600; foreign-owned or symlinked storage is refused
