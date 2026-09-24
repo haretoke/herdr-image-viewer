@@ -375,7 +375,10 @@ checks at the end.
 - [x] `devcon-herdr plugins update` locks the plugin's latest release
 - [x] devcon-herdr installs the locked commit on the Mac and in a container and skips it when already current
 - [x] a locally linked plugin (development on the Mac) is reported and left alone; Herdr refuses to install over a link
-- [ ] a failed install keeps the previous version
+- [x] a failed install keeps the previous version
+      (Herdr 0.9.1 clones into a temp directory, moves the previous checkout
+      aside, and moves it back when the install fails; devcon-herdr never
+      uninstalls first and carries on with the other plugins.)
 - [ ] the shared hook shim calls the plugin where it is installed and falls back to the old preview path where it is not (Mac, WSL2 host, container)
 - [ ] the shim keeps the hook's file name and settings entry, so registration stays idempotent and keeps other settings (the existing registrar tests)
 - [ ] real devices: Mac local, WSL2 thin client, publish into a hidden tab then show it, several conversations, reconnect, transfer volume while browsing
