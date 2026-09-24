@@ -3,7 +3,7 @@
 from collections import OrderedDict
 from dataclasses import dataclass
 
-from . import composite, layout, png, safety
+from . import composite, layout, limits, png, safety
 
 MAIN_CACHE_ENTRIES = 8
 
@@ -93,12 +93,14 @@ class Renderer:
     few selections, thumbnails for as long as they are shown.
     """
 
-    def __init__(self, display, images):
+    def __init__(self, display, images, thumb_cache_bytes=limits.THUMB_CACHE_BYTES):
         self.display = display
         self.images = images
         self.grid = None
         self.main_cache = OrderedDict()
-        self.thumb_cache = {}
+        self.thumb_cache = OrderedDict()
+        self.thumb_cache_size = 0
+        self.thumb_cache_bytes = thumb_cache_bytes
 
     def draw(self, selection, pane):
         result = layout.compute(pane.cols, pane.rows, pane.cell_w, pane.cell_h, len(selection.entries))
@@ -157,6 +159,13 @@ class Renderer:
 
     def thumb(self, entry, width, height):
         key = (entry.sha256, width, height)
-        if key not in self.thumb_cache:
-            self.thumb_cache[key] = self.images.thumb(entry, width, height)
-        return self.thumb_cache[key]
+        if key in self.thumb_cache:
+            self.thumb_cache.move_to_end(key)
+            return self.thumb_cache[key]
+        thumb = self.images.thumb(entry, width, height)
+        self.thumb_cache[key] = thumb
+        self.thumb_cache_size += len(thumb.normal) + len(thumb.dimmed)
+        while self.thumb_cache_size > self.thumb_cache_bytes:
+            _, dropped = self.thumb_cache.popitem(last=False)
+            self.thumb_cache_size -= len(dropped.normal) + len(dropped.dimmed)
+        return thumb

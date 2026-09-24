@@ -304,7 +304,7 @@ checks at the end.
 - [x] moving back to the newest image turns follow_latest on and clears "new"
 - [x] the selection follows its content hash when entries move or the selected one is dropped
 - [x] moving the selection re-sends the main image and the composite, converting only a newly selected image (thumbnails and revisited images come from caches)
-- [ ] the thumbnail cache stays within 32 MiB, dropping the least recently used
+- [x] the thumbnail cache stays within 32 MiB, dropping the least recently used
 - [ ] repeated keys coalesce into one redraw of the last selection
 - [ ] a move blocked at an end sends nothing
 - [ ] SIGWINCH bursts are debounced (fake clock) and identical frames are not re-sent

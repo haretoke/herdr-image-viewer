@@ -1,6 +1,6 @@
 import unittest
 
-from herdr_image_viewer import composite
+from herdr_image_viewer import composite, limits
 from herdr_image_viewer.store import Entry
 from herdr_image_viewer.viewer import Pane, Renderer, Selection
 
@@ -128,6 +128,18 @@ class RendererTest(unittest.TestCase):
         self.assertEqual(len(self.images.thumb_conversions), 3)
         self.assertEqual([data.split()[1] for data, _ in self.display.main_frames], [b"3.png", b"2.png", b"3.png"])
         self.assertEqual(len(self.display.thumb_frames), 3)
+
+    def test_the_thumbnail_cache_stays_within_its_limit_dropping_the_least_recently_used(self):
+        # Each 200x100 image becomes a 96x48 thumbnail: normal + dimmed RGB = 27,648 bytes.
+        renderer = Renderer(self.display, self.images, thumb_cache_bytes=2 * 27_648)
+
+        renderer.draw(self.selection, PANE)
+
+        self.assertLessEqual(renderer.thumb_cache_size, 2 * 27_648)
+        self.assertEqual([key[0] for key in renderer.thumb_cache], [entry(2).sha256, entry(3).sha256])
+        renderer.draw(self.selection, PANE)  # 1.png had been dropped: converted again
+        self.assertEqual([name for name, _, _ in self.images.thumb_conversions].count("1.png"), 2)
+        self.assertEqual(limits.THUMB_CACHE_BYTES, 32 * 1024 * 1024)
 
 
 if __name__ == "__main__":
