@@ -11,6 +11,13 @@ class ConversationKeyTest(unittest.TestCase):
 
         self.assertEqual(key, "claude:3f2a9c1e-session")
 
+    def test_without_a_conversation_id_the_key_falls_back_to_the_caller_pane(self):
+        payload = {"tool_name": "Read"}
+
+        key = keys.conversation_key(payload, socket_path="/run/herdr.sock", caller_pane="w1:p3")
+
+        self.assertEqual(key, "pane:/run/herdr.sock#w1:p3")
+
 
 if __name__ == "__main__":
     unittest.main()

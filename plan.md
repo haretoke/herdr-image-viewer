@@ -230,7 +230,7 @@ checks at the end.
 
 ### conversation key
 - [x] a Claude hook payload with session_id keys the history by that session
-- [ ] without a conversation id the key falls back to the caller pane
+- [x] without a conversation id the key falls back to the caller pane
 - [ ] keys are validated and hashed before becoming directory names
 
 ### safety
