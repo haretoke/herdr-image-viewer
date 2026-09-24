@@ -46,6 +46,15 @@ class RenderTest(unittest.TestCase):
         self.assertEqual(pixel(canvas, 62, 10, 5), dimmed((255, 0, 0)))
         self.assertEqual(pixel(canvas, 62, 52, 5), (0, 0, 255))
 
+    def test_semi_transparent_thumbnails_are_flattened_onto_the_background_before_dimming(self):
+        background = composite.BACKGROUND[0]
+        half = (255 * 128 + background * 127 + 127) // 255, (background * 127 + 127) // 255
+        thumb = composite.prepare(2, 1, bytes([255, 0, 0, 0, 255, 0, 0, 128]))
+
+        self.assertEqual(thumb.normal, bytes(composite.BACKGROUND) + bytes([half[0], half[1], half[1]]))
+        self.assertEqual(thumb.dimmed, thumb.normal.translate(composite.DIM_TABLE))
+        self.assertEqual(thumb.dimmed[:3], bytes(composite.BACKGROUND))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -42,10 +42,19 @@ def prepare(width, height, rgba):
 
 
 def flatten(rgba):
+    """RGB of an RGBA thumbnail composited onto the background."""
     rgb = bytearray(len(rgba) // 4 * 3)
-    rgb[0::3] = rgba[0::4]
-    rgb[1::3] = rgba[1::4]
-    rgb[2::3] = rgba[2::4]
+    alpha = rgba[3::4]
+    if alpha.count(255) == len(alpha):  # opaque: drop the alpha channel by slicing
+        rgb[0::3] = rgba[0::4]
+        rgb[1::3] = rgba[1::4]
+        rgb[2::3] = rgba[2::4]
+        return bytes(rgb)
+    background = BACKGROUND[0]
+    for index, a in enumerate(alpha):  # once per thumbnail, only when it has transparency
+        for channel in range(3):
+            value = rgba[index * 4 + channel]
+            rgb[index * 3 + channel] = (value * a + background * (255 - a) + 127) // 255
     return bytes(rgb)
 
 
