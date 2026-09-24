@@ -270,7 +270,7 @@ checks at the end.
 - [x] h/j/k/l move left/down/up/right and stop only at the ends of the history
 - [x] moving past the visible page shows the next or previous page
 - [x] a move onto a ragged last row lands on the nearest existing cell
-- [ ] with thumbnails hidden h/l step through the history and j/k do nothing
+- [x] with thumbnails hidden h/l step through the history and j/k do nothing
 - [ ] the main image is fitted inside its area, centered, never upscaled
 
 ### png / composite (hand-made RGBA fixtures, no external tools)

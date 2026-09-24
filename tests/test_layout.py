@@ -102,6 +102,12 @@ class MoveTest(unittest.TestCase):
         # Right with 8 entries: columns 0-5 and a ragged 6-7.
         self.assertMoves(RIGHT, 8, {(4, "right"): 7, (1, "right"): 7, (6, "right"): 6})
 
+    def test_with_thumbnails_hidden_left_and_right_step_and_up_and_down_do_nothing(self):
+        self.assertMoves(None, 5, {
+            (3, "right"): 4, (4, "right"): 4, (3, "left"): 2, (0, "left"): 0,
+            (3, "up"): 3, (3, "down"): 3,
+        })
+
 
 if __name__ == "__main__":
     unittest.main()
