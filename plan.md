@@ -194,7 +194,14 @@ checks at the end.
       the viewer pane itself and the next publish reopens it, and graphics
       layers go away with the pane. A crash leaves nothing on screen, so the
       viewer must log errors to a file under the state directory.
-- [ ] two streams with different layer ids draw on one pane at the same time
+- [x] two streams with different layer ids draw on one pane at the same time
+      (2026-09-24): on the Mac a probe pane showed a red frame from stream
+      layer `main` (z 10) and a blue one from layer `thumbs` (z 20) together;
+      closing only the `thumbs` stream removed only the blue frame (screen
+      captures). In the container session both streams opened with `ok` and
+      both frames were accepted (display not captured there). Closing a
+      stream means closing the socket and any `makefile()` reader: with the
+      reader left open the connection, and the layer, stayed.
 - [ ] the computed state directory equals `HERDR_PLUGIN_STATE_DIR` inside a plugin pane
 - [ ] thumbnail RGBA can be obtained on the Mac (sips BMP) and in the container (magick RGBA)
 - [ ] `herdr plugin link` of the local clone works for development and survives a Herdr server restart
