@@ -48,6 +48,12 @@ def image_format(head):
     raise UnsafeInput("not a supported image (PNG, JPEG, GIF, WebP, BMP, TIFF, HEIC)")
 
 
+def display_text(text):
+    """Replace every non-printable character (C0/C1 controls, ESC, bidi
+    overrides, line breaks) so file names cannot drive the terminal."""
+    return "".join(char if char.isprintable() else "?" for char in text)
+
+
 def private_directory(path, uid=None):
     """Create a 0700 directory, or tighten an existing one this user owns.
 

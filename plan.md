@@ -238,7 +238,7 @@ checks at the end.
 - [x] files whose magic bytes are not a supported image are rejected
 - [x] files above the size or pixel caps are rejected
 - [x] storage directories are 0700 and files 0600; foreign-owned or symlinked storage is refused
-- [ ] control characters in file names never reach the title
+- [x] control characters in file names never reach the title
 
 ### store
 - [ ] publishing an image records it as the newest entry with an archived copy

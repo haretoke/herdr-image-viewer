@@ -103,6 +103,18 @@ class PrivateStorageTest(unittest.TestCase):
             safety.create_private_file(path)
 
 
+class DisplayTextTest(unittest.TestCase):
+    def test_control_characters_in_file_names_never_reach_the_title(self):
+        name = "shot\x1b]0;pwned\x07\n\r\t\x7f\x9b31m‮gnp.png 画像"
+
+        shown = safety.display_text(name)
+
+        self.assertTrue(all(char.isprintable() for char in shown), repr(shown))
+        self.assertIn("shot", shown)
+        self.assertIn("画像", shown)
+        self.assertNotIn("\x1b", shown)
+
+
 class CapsTest(unittest.TestCase):
     def test_files_above_the_size_cap_are_rejected(self):
         safety.check_size(limits.MAX_INPUT_BYTES)
