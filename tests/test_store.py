@@ -52,6 +52,19 @@ class StoreTest(unittest.TestCase):
         self.assertEqual([entry.name for entry in history], ["second.png", "first-again.png"])
         self.assertEqual(history[-1].published_at, self.now)
 
+    def test_publishing_new_content_at_an_already_published_path_adds_a_new_entry(self):
+        source = self.image("shot.png", PNG + b"v1")
+        self.store.publish("claude:s1", source)
+        source.write_bytes(PNG + b"v2")
+
+        self.store.publish("claude:s1", source)
+
+        history = self.store.history("claude:s1")
+        self.assertEqual([entry.name for entry in history], ["shot.png", "shot.png"])
+        self.assertNotEqual(history[0].sha256, history[1].sha256)
+        self.assertEqual(self.store.archive_path("claude:s1", history[0]).read_bytes(), PNG + b"v1")
+        self.assertEqual(self.store.archive_path("claude:s1", history[1]).read_bytes(), PNG + b"v2")
+
 
 if __name__ == "__main__":
     unittest.main()
