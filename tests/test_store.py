@@ -1,5 +1,8 @@
 import hashlib
+import subprocess
+import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -98,6 +101,34 @@ class StoreTest(unittest.TestCase):
             self.store.archive_path("pane:/run/herdr.sock#w1:p3", other[0]),
         )
         self.assertEqual(self.store.history("claude:unknown"), [])
+
+    def test_concurrent_publishes_to_one_conversation_do_not_lose_entries(self):
+        start = self.base / "start"
+        worker = (
+            "import sys, time\n"
+            "from pathlib import Path\n"
+            "from herdr_image_viewer.store import Store\n"
+            "root, source, start = sys.argv[1:4]\n"
+            "while not Path(start).exists():\n"
+            "    time.sleep(0.001)\n"
+            "Store(root).publish('claude:s1', source)\n"
+        )
+        repository = Path(__file__).resolve().parents[1]
+        workers = [
+            subprocess.Popen(
+                [sys.executable, "-c", worker, str(self.base / "state"),
+                 str(self.image(f"{number}.png", PNG + str(number).encode())), str(start)],
+                cwd=repository,
+            )
+            for number in range(12)
+        ]
+        time.sleep(0.5)  # let every worker reach the start line
+        start.touch()
+        for process in workers:
+            self.assertEqual(process.wait(timeout=30), 0)
+
+        names = sorted(entry.name for entry in self.store.history("claude:s1"))
+        self.assertEqual(names, sorted(f"{number}.png" for number in range(12)))
 
 
 if __name__ == "__main__":

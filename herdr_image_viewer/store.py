@@ -4,8 +4,11 @@ Layout under the store root:
 
     conversations/<hashed key>/history.json
     conversations/<hashed key>/archive/<sha256>.<ext>
+    locks/<hashed key>.lock
 """
 
+import contextlib
+import fcntl
 import hashlib
 import json
 import os
@@ -69,27 +72,41 @@ class Store:
         archive_dir = conversation / "archive"
         for directory in (self.root, self.root / "conversations", conversation, archive_dir):
             safety.private_directory(directory)
+        # Copies may run in parallel; everything that reads or changes the
+        # history, including archive files it references, runs under the lock.
         temporary, sha256, image_format = self._copy_in(source_path, archive_dir)
-        entry = Entry(
-            sha256=sha256,
-            name=Path(source_path).name,
-            source=str(source_path),
-            format=image_format,
-            published_at=self.clock(),
-        )
         try:
-            os.replace(temporary, self.archive_path(key, entry))
-        except BaseException:
+            with self._conversation_lock(key):
+                entry = Entry(
+                    sha256=sha256,
+                    name=Path(source_path).name,
+                    source=str(source_path),
+                    format=image_format,
+                    published_at=self.clock(),
+                )
+                os.replace(temporary, self.archive_path(key, entry))
+                # The same content published again moves to the newest position.
+                entries = [old for old in self.history(key) if old.sha256 != entry.sha256] + [entry]
+                kept, dropped = entries[-limits.MAX_HISTORY:], entries[:-limits.MAX_HISTORY]
+                self._write_history(key, kept)
+                # Only after the history no longer references them.
+                for old in dropped:
+                    self.archive_path(key, old).unlink(missing_ok=True)
+        finally:
             temporary.unlink(missing_ok=True)
-            raise
-        # The same content published again moves to the newest position.
-        entries = [old for old in self.history(key) if old.sha256 != entry.sha256] + [entry]
-        kept, dropped = entries[-limits.MAX_HISTORY:], entries[:-limits.MAX_HISTORY]
-        self._write_history(key, kept)
-        # Only after the history no longer references them.
-        for old in dropped:
-            self.archive_path(key, old).unlink(missing_ok=True)
         return entry
+
+    def lock_path(self, key):
+        """Outside the conversation directory, so GC can remove that directory."""
+        return self.root / "locks" / f"{keys.directory_name(key)}.lock"
+
+    @contextlib.contextmanager
+    def _conversation_lock(self, key):
+        safety.private_directory(self.root / "locks")
+        flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+        with os.fdopen(os.open(self.lock_path(key), flags, 0o600), "r+b") as handle:
+            fcntl.flock(handle, fcntl.LOCK_EX)
+            yield
 
     def _copy_in(self, source_path, archive_dir):
         """Copy the source into a new temp file; return it with its hash and format."""
