@@ -325,6 +325,13 @@ checks at the end.
 - [x] a viewer launched after its reservation expired exits before drawing when another is live
 - [x] a registration left by a dead viewer is replaced
 - [x] an old viewer exiting does not remove a newer viewer's registration
+- [ ] a viewer that claims its conversation consumes the open reservation, so a viewer closed right after opening is reopened by the next publish
+- [ ] the store root is `HERDR_PLUGIN_STATE_DIR` only when `HERDR_PLUGIN_ID` is this plugin, otherwise `${XDG_STATE_HOME:-$HOME/.local/state}/herdr/plugins/haretoke.image-viewer` (a relative `XDG_STATE_HOME` is ignored)
+- [ ] `publish <image> --conversation K --caller-pane P` stores the image and runs `herdr plugin pane open` (`HERDR_BIN_PATH` first) with the plugin id, the viewer entrypoint, split placement, the caller as target, right, no focus, and the store root, key, and token as env
+- [ ] `publish` of an unsafe file, an invalid key, or a full store exits 1 with a message and opens nothing; an open that fails or times out (below the reservation) exits 1
+- [ ] `gc` runs the collector once
+- [ ] the `open` action opens the viewer of the last conversation published from the focused pane
+- [ ] the manifest declares the viewer pane and the open action, and `herdr plugin link` of the clone lists both (Mac)
 
 ### hook
 - [ ] the plugin hook publishes image files and ignores other files
