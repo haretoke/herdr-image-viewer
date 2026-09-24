@@ -371,8 +371,8 @@ checks at the end.
 - [x] the hook finishes within its time budget, always exits 0, and honors its disable variable
 
 ### integration (devcon-herdr)
-- [ ] an old plugin lock without the image viewer still pins the other plugins, and the image viewer uses its bootstrap release
-- [ ] `devcon-herdr plugins update` locks the plugin's latest release
+- [x] an old plugin lock without the image viewer still pins the other plugins, and the image viewer uses its bootstrap release
+- [x] `devcon-herdr plugins update` locks the plugin's latest release
 - [ ] devcon-herdr installs the locked commit on the Mac and in a container and skips it when already current
 - [ ] a locally linked plugin (development on the Mac) is reported and left alone; Herdr refuses to install over a link
 - [ ] a failed install keeps the previous version
