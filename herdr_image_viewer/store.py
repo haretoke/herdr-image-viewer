@@ -320,20 +320,13 @@ class Store:
         return temporary, digest.hexdigest(), image_format
 
     def _write_history(self, key, entries):
-        path = self.history_path(key)
-        temporary = path.with_name(f".history-{uuid.uuid4().hex}.json")
         document = {
             "schema_version": SCHEMA_VERSION,
             "key": key,
             "updated_at": self.clock(),
             "entries": [asdict(entry) for entry in entries],
         }
-        try:
-            with safety.create_private_file(temporary) as handle:
-                handle.write(json.dumps(document, ensure_ascii=False, indent=1).encode("utf-8"))
-                handle.flush()
-                os.fsync(handle.fileno())
-            os.replace(temporary, path)
-        except BaseException:
-            temporary.unlink(missing_ok=True)
-            raise
+        write_private_atomically(
+            self.history_path(key),
+            json.dumps(document, ensure_ascii=False, indent=1).encode("utf-8"),
+        )
