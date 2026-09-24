@@ -262,7 +262,7 @@ checks at the end.
 - [x] GC removes unreferenced archive files and temp files older than an hour, except in protected conversations
 
 ### layout
-- [ ] a tall pane (by pixel aspect) places the grid below the main image
+- [x] a tall pane (by pixel aspect) places the grid below the main image
 - [ ] a wide pane places the grid in columns on the right
 - [ ] a pane below the minimum size shows no thumbnails
 - [ ] an empty history lays out a placeholder
