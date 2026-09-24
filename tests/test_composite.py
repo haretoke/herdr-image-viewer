@@ -37,6 +37,15 @@ class RenderTest(unittest.TestCase):
         self.assertEqual(pixel(canvas, 62, 0, 0), composite.BACKGROUND)   # unselected box edge
         self.assertEqual(pixel(canvas, 62, 20, 5), composite.BACKGROUND)  # gap between boxes
 
+    def test_unselected_thumbnails_are_dimmed_once_not_again_on_every_move(self):
+        thumbs = self.thumbs()
+        for selected in (0, 1, 2, 0, 2):
+            canvas = composite.render(62, 10, self.SLOTS, thumbs, selected=selected)
+
+        self.assertEqual(pixel(canvas, 62, 31, 5), dimmed((0, 255, 0)))
+        self.assertEqual(pixel(canvas, 62, 10, 5), dimmed((255, 0, 0)))
+        self.assertEqual(pixel(canvas, 62, 52, 5), (0, 0, 255))
+
 
 if __name__ == "__main__":
     unittest.main()
