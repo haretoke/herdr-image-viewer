@@ -1,7 +1,8 @@
 """Command line: `viewer` runs the pane process; `publish` adds an image to a
 conversation's history and makes sure a viewer shows that conversation; `open`
 (the plugin action) reopens the viewer of the focused pane's last conversation;
-`gc` collects the store now instead of waiting for the next hourly run."""
+`gc` collects the store now instead of waiting for the next hourly run; `hook`
+runs an agent hook (hooks/claude-read.sh calls `hook claude-read`)."""
 
 import argparse
 import json
@@ -24,6 +25,8 @@ def main(argv, environ=None):
     publish.add_argument("--caller-pane", required=True)
     commands.add_parser("gc", help="remove expired conversations and trim the store")
     commands.add_parser("open", help="reopen the viewer for the focused pane (plugin action)")
+    hook = commands.add_parser("hook", help="agent hooks (payload on stdin)")
+    hook.add_argument("event", choices=["claude-read"])
     args = parser.parse_args(argv)
 
     if args.command == "viewer":
@@ -34,6 +37,10 @@ def main(argv, environ=None):
         return collect(environ)
     if args.command == "open":
         return open_for_focused_pane(environ)
+    if args.command == "hook":
+        from . import hook
+
+        return hook.claude_read(environ, sys.stdin.buffer.read())
     return publish_image(environ, args.image, args.conversation, args.caller_pane)
 
 
