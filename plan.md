@@ -274,7 +274,7 @@ checks at the end.
 - [x] the main image is fitted inside its area, centered, never upscaled
 
 ### png / composite (hand-made RGBA fixtures, no external tools)
-- [ ] the PNG encoder writes valid chunks and CRCs; an external decoder reads it back
+- [x] the PNG encoder writes valid chunks and CRCs; an external decoder reads it back
 - [ ] thumbnails land in their cells with the highlight border on the selection (pixel assertions)
 - [ ] unselected thumbnails are dimmed once, not again on every move
 - [ ] semi-transparent thumbnails are flattened onto the background before dimming
