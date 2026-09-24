@@ -32,6 +32,10 @@ EXTENSIONS = {
 COPY_CHUNK = 1024 * 1024
 
 
+class NewerSchema(Exception):
+    """The history was written by a newer version of the plugin."""
+
+
 @dataclass(frozen=True)
 class Entry:
     sha256: str
@@ -73,14 +77,18 @@ class Store:
         return self._read_history(key)[1]
 
     def _read_history(self, key):
-        """Return (status, entries) with status "missing", "ok", or "corrupt"."""
+        """Return (status, entries) with status "missing", "ok", "corrupt", or
+        "newer" (written by a newer version: never modified or collected)."""
         try:
             data = json.loads(self.history_path(key).read_bytes())
         except FileNotFoundError:
             return "missing", []
         except ValueError:
             return "corrupt", []
-        if not isinstance(data, dict) or data.get("schema_version") != SCHEMA_VERSION:
+        version = data.get("schema_version") if isinstance(data, dict) else None
+        if isinstance(version, int) and not isinstance(version, bool) and version > SCHEMA_VERSION:
+            return "newer", []
+        if version != SCHEMA_VERSION:
             return "corrupt", []
         entries = data.get("entries")
         if not isinstance(entries, list) or not all(map(valid_entry, entries)):
@@ -113,11 +121,15 @@ class Store:
                     format=image_format,
                     published_at=self.clock(),
                 )
-                os.replace(temporary, self.archive_path(key, entry))
                 status, current = self._read_history(key)
+                if status == "newer":
+                    raise NewerSchema(
+                        f"{self.history_path(key)} was written by a newer version; left untouched"
+                    )
                 if status == "corrupt":
                     # Keep it (and every archive file) for inspection; start over.
                     self._set_aside(key)
+                os.replace(temporary, self.archive_path(key, entry))
                 # The same content published again moves to the newest position.
                 entries = [old for old in current if old.sha256 != entry.sha256] + [entry]
                 kept, dropped = entries[-limits.MAX_HISTORY:], entries[:-limits.MAX_HISTORY]

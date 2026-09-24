@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from herdr_image_viewer.store import Store
+from herdr_image_viewer.store import NewerSchema, Store
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
 
@@ -176,6 +176,21 @@ class StoreTest(unittest.TestCase):
                 aside = sorted(history_path.parent.glob("history.corrupt-*.json"))
                 self.assertIn(corrupt, [path.read_bytes() for path in aside])
                 self.assertTrue(old_archive.exists())
+
+    def test_a_history_with_a_newer_schema_version_is_left_untouched(self):
+        self.store.publish("claude:s1", self.image("old.png", PNG + b"old"))
+        history_path = self.store.history_path("claude:s1")
+        newer = b'{"schema_version": 2, "entries": "a format this version does not know"}'
+        history_path.write_bytes(newer)
+
+        self.assertEqual(self.store.history("claude:s1"), [])
+        with self.assertRaises(NewerSchema):
+            self.store.publish("claude:s1", self.image("new.png", PNG + b"new"))
+
+        self.assertEqual(history_path.read_bytes(), newer)
+        self.assertEqual(list(history_path.parent.glob("history.corrupt-*.json")), [])
+        archive = history_path.parent / "archive"
+        self.assertEqual([p.name for p in archive.iterdir() if p.name.startswith(".")], [])
 
 
 if __name__ == "__main__":

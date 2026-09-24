@@ -250,8 +250,11 @@ checks at the end.
 - [x] an entry stays viewable from the archive after its source is deleted
 - [x] a crash after archiving but before replacing the history leaves the old history intact
 - [x] a corrupt history is moved aside and its archives are kept
-- [ ] a history with an unknown schema version is neither modified nor collected
+- [x] a history with an unknown schema version is neither modified nor collected
+      (publish raises NewerSchema before touching anything; collection is
+      covered by the GC test below)
 - [ ] GC removes conversations whose `updated_at` is older than 14 days (boundary ±1 s)
+- [ ] GC never collects a conversation with a newer-schema or set-aside corrupt history
 - [ ] GC trims the total below 500 MiB oldest first (boundary ±1 byte) and skips locked conversations
 - [ ] two GC runs at once and GC during a publish to another conversation stay consistent
 - [ ] publish fails with a capacity error when GC cannot free enough space, keeping the history
