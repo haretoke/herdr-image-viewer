@@ -238,7 +238,11 @@ checks at the end.
 - [x] symlinks, FIFOs, and directories are rejected; content is copied from the opened regular file
 - [x] files whose magic bytes are not a supported image are rejected
 - [x] files above the size or pixel caps are rejected
-- [ ] image dimensions are read from the headers of PNG, GIF, BMP, JPEG, WebP (VP8, VP8L, VP8X), TIFF, and HEIC without external tools
+- [x] image dimensions are read from the headers of PNG, GIF, BMP, JPEG, WebP (VP8, VP8L, VP8X), TIFF, and HEIC without external tools
+      (2026-09-24, files written by the real tools from a 123x45 source: sips
+      JPEG, GIF, BMP, TIFF, PNG and ImageMagick JPEG (baseline, progressive),
+      GIF, BMP, BMP3, TIFF, WebP lossy, lossless, and VP8X all read 123x45;
+      sips HEIC reads 124x46, the padded coded size.)
 - [ ] publish refuses an image above the pixel cap, or one whose size cannot be read, before it enters the history
       (until now the pixel cap was a checked function that no image went
       through; only ImageMagick had resource limits)
