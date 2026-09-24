@@ -292,6 +292,29 @@ class GcTest(StoreFixture):
         self.assertEqual(remaining, [self.store.conversation_dir("claude:fresh").name])
         self.assertEqual(len(self.store.history("claude:fresh")), 10)
 
+    def test_a_gc_started_while_another_runs_does_nothing(self):
+        self.store.publish("claude:expired", self.image("a.png", PNG + b"a"))
+        self.now += 15 * DAY
+
+        with self.store._lock("gc"):  # another GC run holds the global lock
+            self.store.gc()
+
+        self.assertTrue(self.store.conversation_dir("claude:expired").exists())
+
+    def test_sizes_ignore_files_removed_while_gc_walks_the_tree(self):
+        self.store.publish("claude:s1", self.image("a.png", PNG + b"a"))
+        real_stat = Path.stat
+
+        def vanishing_stat(path, *args, **kwargs):
+            if path.name.endswith(".png"):
+                raise FileNotFoundError(path)
+            return real_stat(path, *args, **kwargs)
+
+        with mock.patch.object(Path, "stat", vanishing_stat):
+            self.store.gc()
+
+        self.assertEqual(len(self.store.history("claude:s1")), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

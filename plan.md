@@ -256,7 +256,7 @@ checks at the end.
 - [x] GC removes conversations whose `updated_at` is older than 14 days (boundary ±1 s)
 - [x] GC never collects a conversation with a newer-schema or set-aside corrupt history
 - [x] GC trims the total below 500 MiB oldest first (boundary ±1 byte) and skips locked conversations
-- [ ] two GC runs at once and GC during a publish to another conversation stay consistent
+- [x] two GC runs at once and GC during a publish to another conversation stay consistent
 - [ ] publish fails with a capacity error when GC cannot free enough space, keeping the history
 
 ### layout

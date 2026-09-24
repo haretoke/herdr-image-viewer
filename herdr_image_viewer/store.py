@@ -50,7 +50,14 @@ ENTRY_TYPES = {"sha256": str, "name": str, "source": str, "format": str, "publis
 
 
 def tree_size(directory):
-    return sum(path.stat().st_size for path in Path(directory).rglob("*") if path.is_file())
+    total = 0
+    for path in Path(directory).rglob("*"):
+        try:
+            if path.is_file():
+                total += path.stat().st_size
+        except FileNotFoundError:
+            continue  # removed while walking (a publish renaming its temp file)
+    return total
 
 
 def read_history_file(path):
@@ -116,11 +123,18 @@ class Store:
         """Remove conversations not updated for more than the GC age, then the
         least recently updated ones until the total fits max_total_bytes.
 
-        Conversations being written (locked) and protected ones are skipped.
+        Conversations being written (locked) and protected ones are skipped,
+        and a run started while another holds the global GC lock does nothing.
+        Lock order: the global GC lock, then a conversation lock.
         """
         conversations = self.root / "conversations"
         if not conversations.is_dir():
             return
+        with self._lock("gc", blocking=False) as held:
+            if held:
+                self._collect(conversations)
+
+    def _collect(self, conversations):
         for directory in conversations.iterdir():
             if self._expired(directory):
                 self._remove_unless_locked(directory, self._expired)
