@@ -69,7 +69,7 @@ class Store:
         archive_dir = conversation / "archive"
         for directory in (self.root, self.root / "conversations", conversation, archive_dir):
             safety.private_directory(directory)
-        sha256, image_format = self._copy_in(source_path, archive_dir)
+        temporary, sha256, image_format = self._copy_in(source_path, archive_dir)
         entry = Entry(
             sha256=sha256,
             name=Path(source_path).name,
@@ -77,11 +77,16 @@ class Store:
             format=image_format,
             published_at=self.clock(),
         )
-        os.replace(archive_dir / f".incoming-{sha256}", self.archive_path(key, entry))
+        try:
+            os.replace(temporary, self.archive_path(key, entry))
+        except BaseException:
+            temporary.unlink(missing_ok=True)
+            raise
         self._write_history(key, self.history(key) + [entry])
         return entry
 
     def _copy_in(self, source_path, archive_dir):
+        """Copy the source into a new temp file; return it with its hash and format."""
         temporary = archive_dir / f".incoming-{uuid.uuid4().hex}"
         digest = hashlib.sha256()
         try:
@@ -99,12 +104,10 @@ class Store:
                     chunk = source.read(COPY_CHUNK)
                 target.flush()
                 os.fsync(target.fileno())
-            sha256 = digest.hexdigest()
-            os.replace(temporary, archive_dir / f".incoming-{sha256}")
-            return sha256, image_format
         except BaseException:
             temporary.unlink(missing_ok=True)
             raise
+        return temporary, digest.hexdigest(), image_format
 
     def _write_history(self, key, entries):
         path = self.history_path(key)
