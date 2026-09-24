@@ -64,6 +64,19 @@ class LayoutTest(unittest.TestCase):
                 self.assertIsNone(layout.compute(cols=cols, rows=rows, cell_w=cell_w, cell_h=cell_h, count=3))
 
 
+class FitTest(unittest.TestCase):
+    def test_the_main_image_is_fitted_inside_its_area_centered_and_never_upscaled(self):
+        area = Rect(col=0, row=1, cols=60, rows=32)  # 600x640 px
+        cases = {
+            "wide, halved": ((1200, 800), layout.Placement(col=0, row=7, cols=60, rows=20, width=600, height=400)),
+            "small, kept": ((100, 50), layout.Placement(col=25, row=15, cols=10, rows=3, width=100, height=50)),
+            "tall, halved": ((300, 1280), layout.Placement(col=22, row=1, cols=15, rows=32, width=150, height=640)),
+        }
+        for name, ((width, height), expected) in cases.items():
+            with self.subTest(name):
+                self.assertEqual(layout.fit(width, height, area, CELL_W, CELL_H), expected)
+
+
 BELOW = layout.compute(cols=60, rows=40, cell_w=CELL_W, cell_h=CELL_H, count=12).grid  # 5 x 2
 RIGHT = layout.compute(cols=120, rows=20, cell_w=CELL_W, cell_h=CELL_H, count=12).grid  # 2 x 6
 

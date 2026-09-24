@@ -4,6 +4,7 @@ Row 0 is the title line. A tall pane (by pixel aspect) puts the thumbnail grid
 below the main image, a wide pane puts it in columns on the right.
 """
 
+import math
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
@@ -36,6 +37,36 @@ class Grid:
 class Layout:
     main: Rect
     grid: Optional[Grid]
+
+
+@dataclass(frozen=True)
+class Placement:
+    """Cells an image occupies and the pixel size to render it at (Herdr draws
+    pixels 1:1, so the image must be scaled to width x height before sending)."""
+
+    col: int
+    row: int
+    cols: int
+    rows: int
+    width: int
+    height: int
+
+
+def fit(image_w, image_h, area, cell_w, cell_h):
+    """Fit an image inside area, centered, never upscaled."""
+    scale = min(area.cols * cell_w / image_w, area.rows * cell_h / image_h, 1.0)
+    width = max(1, round(image_w * scale))
+    height = max(1, round(image_h * scale))
+    cols = min(area.cols, math.ceil(width / cell_w))
+    rows = min(area.rows, math.ceil(height / cell_h))
+    return Placement(
+        col=area.col + (area.cols - cols) // 2,
+        row=area.row + (area.rows - rows) // 2,
+        cols=cols,
+        rows=rows,
+        width=width,
+        height=height,
+    )
 
 
 def page(grid, count, index):

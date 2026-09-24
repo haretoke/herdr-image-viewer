@@ -271,7 +271,7 @@ checks at the end.
 - [x] moving past the visible page shows the next or previous page
 - [x] a move onto a ragged last row lands on the nearest existing cell
 - [x] with thumbnails hidden h/l step through the history and j/k do nothing
-- [ ] the main image is fitted inside its area, centered, never upscaled
+- [x] the main image is fitted inside its area, centered, never upscaled
 
 ### png / composite (hand-made RGBA fixtures, no external tools)
 - [ ] the PNG encoder writes valid chunks and CRCs; an external decoder reads it back
