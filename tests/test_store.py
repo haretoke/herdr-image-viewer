@@ -341,6 +341,21 @@ class GcTest(StoreFixture):
         self.assertEqual([p.name for p in archive.iterdir() if p.name.startswith(".")], [])
         self.assertTrue(self.store.conversation_dir("claude:protected").exists())
 
+    def test_publish_runs_the_age_based_gc_at_most_once_an_hour(self):
+        start = self.now
+        self.store.publish("claude:a", self.image("a.png", PNG + b"a"))
+        self.now = start + 14 * DAY - 30 * 60
+        self.store.publish("claude:b", self.image("b.png", PNG + b"b"))  # first run: nothing expired yet
+
+        self.now = start + 14 * DAY + 10 * 60  # "a" has expired, but GC ran 40 minutes ago
+        self.store.publish("claude:c", self.image("c.png", PNG + b"c"))
+        self.assertTrue(self.store.conversation_dir("claude:a").exists())
+
+        self.now = start + 14 * DAY + 31 * 60  # 61 minutes after the last run
+        self.store.publish("claude:d", self.image("d.png", PNG + b"d"))
+        self.assertFalse(self.store.conversation_dir("claude:a").exists())
+        self.assertTrue(self.store.conversation_dir("claude:b").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

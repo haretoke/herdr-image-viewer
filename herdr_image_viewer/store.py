@@ -54,6 +54,20 @@ class Entry:
 ENTRY_TYPES = {"sha256": str, "name": str, "source": str, "format": str, "published_at": (int, float)}
 
 
+def write_private_atomically(path, data):
+    """Replace path with data through a 0600 temp file in the same directory."""
+    path = Path(path)
+    temporary = path.with_name(f".{path.name}-{uuid.uuid4().hex}")
+    try:
+        with safety.create_private_file(temporary) as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def tree_size(directory):
     """Bytes of the regular files below directory, tolerating concurrent GC
     (os.walk skips directories that vanish) and publishes (files renamed away)."""
@@ -241,7 +255,21 @@ class Store:
                     self.archive_path(key, old).unlink(missing_ok=True)
         finally:
             temporary.unlink(missing_ok=True)
+        self._maybe_gc()  # after the conversation lock: global lock first
         return entry
+
+    def _maybe_gc(self):
+        """Run GC if the last run recorded in gc.stamp is an hour old or more."""
+        stamp = self.root / "gc.stamp"
+        now = self.clock()
+        try:
+            last = float(stamp.read_text(encoding="ascii"))
+        except (OSError, ValueError):
+            last = None
+        if last is not None and 0 <= now - last < limits.GC_INTERVAL_SECONDS:
+            return
+        write_private_atomically(stamp, repr(now).encode("ascii"))
+        self.gc()
 
     def lock_path(self, key):
         """Outside the conversation directory, so GC can remove that directory."""

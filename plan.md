@@ -258,7 +258,7 @@ checks at the end.
 - [x] GC trims the total below 500 MiB oldest first (boundary ±1 byte) and skips locked conversations
 - [x] two GC runs at once and GC during a publish to another conversation stay consistent
 - [x] publish fails with a capacity error when GC cannot free enough space, keeping the history
-- [ ] publish runs the age-based GC at most once an hour
+- [x] publish runs the age-based GC at most once an hour
 
 ### layout
 - [ ] a tall pane (by pixel aspect) places the grid below the main image
