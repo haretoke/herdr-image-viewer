@@ -96,6 +96,12 @@ class MoveTest(unittest.TestCase):
         self.assertEqual(layout.page(BELOW, 23, 22), range(20, 23))
         self.assertEqual(layout.page(RIGHT, 30, layout.move(RIGHT, 30, 11, "down")), range(12, 24))
 
+    def test_a_move_onto_a_ragged_last_row_lands_on_the_nearest_existing_cell(self):
+        # Below with 12 entries: rows 0-4, 5-9, and a ragged 10-11.
+        self.assertMoves(BELOW, 12, {(7, "down"): 11, (8, "down"): 11, (10, "down"): 10})
+        # Right with 8 entries: columns 0-5 and a ragged 6-7.
+        self.assertMoves(RIGHT, 8, {(4, "right"): 7, (1, "right"): 7, (6, "right"): 6})
+
 
 if __name__ == "__main__":
     unittest.main()

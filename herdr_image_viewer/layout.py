@@ -56,6 +56,8 @@ def move(grid, count, index, direction):
         target = index + along[direction]
     elif direction in across:
         target = index + across[direction] * stride
+        if target >= count and target // stride * stride < count:
+            return count - 1  # a ragged last row or column: its nearest cell
     else:
         return index
     return target if 0 <= target < count else index
