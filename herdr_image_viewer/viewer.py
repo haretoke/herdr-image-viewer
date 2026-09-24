@@ -122,8 +122,7 @@ class Viewer:
         self.read_history = read_history
         self.read_pane = read_pane
         self.clock = clock
-        self.selection = Selection()
-        self.selection.update(read_history())
+        self.selection = Selection()  # filled by the first step
         self.dirty = True
         self.refits = []
         self.retry_at = None

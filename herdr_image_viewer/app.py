@@ -2,10 +2,11 @@
 
 import os
 import select
-import shutil
 import signal
 import sys
 import termios
+import time
+import traceback
 import tty
 from pathlib import Path
 
@@ -151,7 +152,28 @@ def run(viewer, terminal):
 
 
 def run_from_environment(environ):
-    store = Store(Path(environ["HERDR_IMAGE_VIEWER_STORE"]))
+    """Run the viewer; an unexpected error is logged before exiting with 1,
+    since a crashing pane closes and takes its output with it (spike 0-2)."""
+    root = Path(environ["HERDR_IMAGE_VIEWER_STORE"])
+    try:
+        return run_viewer(environ, root)
+    except Exception:
+        log_error(root / "viewer.log", traceback.format_exc())
+        return 1
+
+
+def log_error(path, text):
+    try:
+        safety.private_directory(path.parent)
+        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        with os.fdopen(descriptor, "a", encoding="utf-8") as handle:
+            handle.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} viewer error\n{text}\n")
+    except OSError:
+        pass  # nowhere left to report it
+
+
+def run_viewer(environ, root):
+    store = Store(root)
     key = environ["HERDR_IMAGE_VIEWER_CONVERSATION"]
     terminal = Terminal()
     display = HerdrDisplay(environ["HERDR_SOCKET_PATH"], environ["HERDR_PANE_ID"], terminal)

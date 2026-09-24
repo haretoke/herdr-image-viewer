@@ -184,6 +184,19 @@ class ViewerProcessTest(unittest.TestCase):
                 self.assertIn(b"\x1b[?1049l", self.output)
                 os.close(master)
 
+    def test_an_unexpected_error_is_logged_under_the_state_directory_before_exiting(self):
+        history = Store(self.store_root).history_path("claude:s1")
+        history.chmod(0)  # reading the history raises PermissionError
+        pid, master = self.start()
+
+        self.assertEqual(self.wait_exit(pid, master), 1)
+
+        log = (self.store_root / "viewer.log").read_text()
+        self.assertIn("PermissionError", log)
+        self.assertIn("Traceback", log)
+        self.assertIn(b"\x1b[?1049l", self.output)  # the terminal was still restored
+        self.assertEqual((self.store_root / "viewer.log").stat().st_mode & 0o777, 0o600)
+
     def test_the_pane_going_away_ends_the_viewer(self):
         pid, master = self.start()
         self.assertTrue(self.herdr.wait_for(("frame", "main")), self.herdr.events)

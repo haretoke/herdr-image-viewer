@@ -316,7 +316,7 @@ checks at the end.
 - [x] the viewer picks up a newly published image without input
 - [x] an entry whose archive is missing shows a placeholder
 - [x] a conversation removed by GC turns into an empty view
-- [ ] an unexpected error is logged to a file under the state directory before the viewer exits
+- [x] an unexpected error is logged to a file under the state directory before the viewer exits
 
 ### launcher / cli
 - [ ] `publish` opens the viewer next to the caller pane when the conversation has none
