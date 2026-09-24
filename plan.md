@@ -319,7 +319,7 @@ checks at the end.
 - [x] an unexpected error is logged to a file under the state directory before the viewer exits
 
 ### launcher / cli
-- [ ] `publish` opens the viewer next to the caller pane when the conversation has none
+- [x] `publish` opens the viewer next to the caller pane when the conversation has none
 - [ ] concurrent publishes and a manual open leave at most one live viewer and no extra panes
 - [ ] an open that timed out is not retried while its reservation is live
 - [ ] a viewer launched after its reservation expired exits before drawing when another is live
