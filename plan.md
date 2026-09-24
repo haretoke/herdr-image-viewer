@@ -277,6 +277,7 @@ checks at the end.
 - [ ] arrow key escape sequences split across reads are parsed
 - [ ] an entry whose archive is missing shows a placeholder
 - [ ] a conversation removed by GC turns into an empty view
+- [ ] an unexpected error is logged to a file under the state directory before the viewer exits
 
 ### launcher / cli
 - [ ] `publish` opens the viewer next to the caller pane when the conversation has none
