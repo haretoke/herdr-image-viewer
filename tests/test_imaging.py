@@ -19,13 +19,13 @@ arguments = sys.argv[1:]
 with open(os.environ["FAKE_LOG"], "a") as log:
     log.write(json.dumps([os.path.basename(sys.argv[0])] + arguments) + "\\n")
 time.sleep(float(os.environ.get("FAKE_SLEEP", "0")))
+width, height = 4, 2  # plain conversions
 if "--resampleHeightWidth" in arguments:
     at = arguments.index("--resampleHeightWidth")
     height, width = int(arguments[at + 1]), int(arguments[at + 2])
-    out = arguments[arguments.index("--out") + 1]
-else:
+elif "-resize" in arguments:
     width, height = map(int, arguments[arguments.index("-resize") + 1].rstrip("!").split("x"))
-    out = arguments[-1].split(":", 1)[-1]
+out = arguments[arguments.index("--out") + 1] if "--out" in arguments else arguments[-1].split(":", 1)[-1]
 def chunk(kind, data):
     return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
 rows = (b"\\x00" + b"\\x01\\x02\\x03" * width) * height
@@ -107,6 +107,25 @@ class ResizeTest(FakeToolsTest):
                 imaging.resize(solid_png(40, 20), 10, 5, timeout=0.5)
 
         self.assertLess(time.monotonic() - started, 3)
+
+
+class ConvertTest(FakeToolsTest):
+    def test_a_gif_or_tiff_converts_its_first_frame(self):
+        self.install("magick")
+        for image_format, head in (("gif", b"GIF89a"), ("tiff", b"II*\x00")):
+            with self.subTest(image_format):
+                converted = imaging.to_png(head + b"frames", image_format)
+
+                self.assertEqual(imaging.png_size(converted), (4, 2))
+                call = self.calls()[-1]
+                inputs = [argument for argument in call if argument.endswith("[0]")]
+                self.assertEqual(len(inputs), 1, call)
+
+    def test_a_png_is_returned_as_it_is(self):
+        data = solid_png(3, 3)
+
+        self.assertIs(imaging.to_png(data, "png"), data)
+        self.assertFalse(self.log.exists())
 
 
 if __name__ == "__main__":

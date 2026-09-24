@@ -46,6 +46,25 @@ def resize(data, width, height, timeout=limits.CONVERT_TIMEOUT_SECONDS):
     return result
 
 
+def to_png(data, image_format, timeout=limits.CONVERT_TIMEOUT_SECONDS):
+    """PNG bytes of an image; multi-frame formats contribute their first frame."""
+    if image_format == "png":
+        return data
+    with tempfile.TemporaryDirectory(prefix="herdr-image-viewer-") as directory:
+        source = Path(directory) / f"source.{image_format}"
+        target = Path(directory) / "converted.png"
+        source.write_bytes(data)
+        commands = {
+            "sips": ["-s", "format", "png", str(source), "--out", str(target)],
+            "magick": [*MAGICK_LIMITS, f"{source}[0]", f"png:{target}"],
+            "convert": [*MAGICK_LIMITS, f"{source}[0]", f"png:{target}"],
+            "ffmpeg": ["-v", "error", "-y", "-i", str(source), "-frames:v", "1", str(target)],
+        }
+        result = run_first_available(commands, target, timeout)
+    png_size(result)
+    return result
+
+
 def run_first_available(commands, target, timeout):
     """Try the tools found on PATH in the order given; return target's bytes
     from the first that succeeds."""
