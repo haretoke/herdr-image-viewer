@@ -244,6 +244,7 @@ checks at the end.
       GIF, BMP, BMP3, TIFF, WebP lossy, lossless, and VP8X all read 123x45;
       sips HEIC reads 124x46, the padded coded size.)
 - [x] publish refuses an image above the pixel cap, or one whose size cannot be read, before it enters the history
+- [x] a conversation directory that never got a history (its first publish was refused) is collected after the GC age
       (until now the pixel cap was a checked function that no image went
       through; only ImageMagick had resource limits)
 - [x] storage directories are 0700 and files 0600; foreign-owned or symlinked storage is refused
@@ -367,5 +368,10 @@ checks at the end.
 - [ ] real devices: Mac local, WSL2 thin client, publish into a hidden tab then show it, several conversations, reconnect, transfer volume while browsing
 
 ## Open items
+
+- Files under `run/` and `locks/` (a few tiny files per conversation and per
+  caller pane) are never removed. Deleting a lock file safely needs every
+  locker to re-check, after locking, that the path still names the inode it
+  locked; until that is in place they are left alone.
 
 - Where Codex exposes a conversation id (until then Codex uses the pane fallback).

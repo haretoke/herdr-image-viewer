@@ -248,6 +248,22 @@ class GcTest(StoreFixture):
             with self.subTest(key=key):
                 self.assertTrue(self.store.conversation_dir(key).exists())
 
+    def test_gc_collects_a_conversation_whose_first_publish_was_refused_after_14_days(self):
+        bomb = b"GIF89a" + struct.pack("<HH", 20000, 5001) + bytes(3)
+        with self.assertRaises(UnsafeInput):
+            self.store.publish("claude:refused", self.image("bomb.gif", bomb))
+        directory = self.store.conversation_dir("claude:refused")
+        self.assertTrue(directory.exists())  # made before the copy was refused
+        os.utime(directory, (self.now, self.now))
+        self.now += 14 * DAY
+
+        self.store.gc()
+        self.assertTrue(directory.exists())  # 14 days old: kept, like a history of that age
+
+        self.now += 1
+        self.store.gc()
+        self.assertFalse(directory.exists())
+
     def stored_bytes(self):
         return sum(p.stat().st_size for p in (self.base / "state" / "conversations").rglob("*") if p.is_file())
 

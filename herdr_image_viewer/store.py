@@ -228,6 +228,12 @@ class Store:
         if any(directory.glob("history.corrupt-*.json")):
             return None
         status, _, updated_at = read_history_file(directory / "history.json")
+        if status == "missing":
+            # Its first publish was refused (or is under way, and so recent).
+            try:
+                return directory.stat().st_mtime
+            except FileNotFoundError:
+                return None
         return updated_at if status == "ok" else None
 
     def _expired(self, directory):
