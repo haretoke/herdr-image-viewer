@@ -121,4 +121,15 @@ def claim(root, key, token, pane_id):
         return None
     document = {"token": token, "pane_id": pane_id, "pid": os.getpid()}
     write_private_atomically(paths["registration"], json.dumps(document).encode("utf-8"))
+    # The open this viewer came from is done. Holding the viewer lock keeps
+    # publishers from writing a new reservation between the read and the unlink.
+    remove_if_token(paths["reservation"], token)
     return Claim(descriptor, paths["registration"], token)
+
+
+def remove_if_token(path, token):
+    try:
+        if json.loads(path.read_bytes()).get("token") == token:
+            path.unlink()
+    except (OSError, ValueError, AttributeError):
+        pass

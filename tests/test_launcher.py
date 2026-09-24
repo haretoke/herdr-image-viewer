@@ -65,6 +65,16 @@ class EnsureViewerTest(unittest.TestCase):
         self.assertEqual(self.ensure(), "running")
         self.assertEqual(self.opener.requests, [])
 
+    def test_a_viewer_closed_right_after_opening_is_reopened_by_the_next_publish(self):
+        self.assertEqual(self.ensure(), "opened")
+        token = self.opener.requests[0][1]["HERDR_IMAGE_VIEWER_TOKEN"]
+        viewer = launcher.claim(self.root, "claude:s1", token=token, pane_id="w1:v1")
+        viewer.release()  # q a moment after the pane appeared
+        self.now += 1
+
+        self.assertEqual(self.ensure(), "opened")
+        self.assertEqual(len(self.opener.requests), 2)
+
     def test_a_registration_left_by_a_dead_viewer_is_replaced(self):
         holder = (
             "import sys, time\n"
