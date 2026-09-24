@@ -130,6 +130,17 @@ class StoreTest(unittest.TestCase):
         names = sorted(entry.name for entry in self.store.history("claude:s1"))
         self.assertEqual(names, sorted(f"{number}.png" for number in range(12)))
 
+    def test_an_entry_stays_viewable_from_the_archive_after_its_source_is_deleted(self):
+        source = self.image("scratch.png", PNG + b"temporary screenshot")
+        entry = self.store.publish("claude:s1", source)
+
+        source.unlink()
+
+        self.assertEqual(
+            self.store.archive_path("claude:s1", entry).read_bytes(), PNG + b"temporary screenshot"
+        )
+        self.assertEqual(self.store.history("claude:s1")[-1].source, str(source))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -247,7 +247,7 @@ checks at the end.
 - [x] the history keeps at most 30 entries (29, 30, 31) and deletes archives no entry references
 - [x] histories of different conversation keys are independent
 - [x] concurrent publishes to one conversation do not lose entries
-- [ ] an entry stays viewable from the archive after its source is deleted
+- [x] an entry stays viewable from the archive after its source is deleted
 - [ ] a crash after archiving but before replacing the history leaves the old history intact
 - [ ] a corrupt history is moved aside and its archives are kept
 - [ ] a history with an unknown schema version is neither modified nor collected
