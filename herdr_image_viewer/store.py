@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 import shutil
+import stat
 import time
 import uuid
 from dataclasses import asdict, dataclass
@@ -37,6 +38,10 @@ class NewerSchema(Exception):
     """The history was written by a newer version of the plugin."""
 
 
+class CapacityError(Exception):
+    """The store is over its size cap and GC could not free enough space."""
+
+
 @dataclass(frozen=True)
 class Entry:
     sha256: str
@@ -50,13 +55,17 @@ ENTRY_TYPES = {"sha256": str, "name": str, "source": str, "format": str, "publis
 
 
 def tree_size(directory):
+    """Bytes of the regular files below directory, tolerating concurrent GC
+    (os.walk skips directories that vanish) and publishes (files renamed away)."""
     total = 0
-    for path in Path(directory).rglob("*"):
-        try:
-            if path.is_file():
-                total += path.stat().st_size
-        except FileNotFoundError:
-            continue  # removed while walking (a publish renaming its temp file)
+    for folder, _, names in os.walk(directory):
+        for name in names:
+            try:
+                status = os.stat(os.path.join(folder, name), follow_symlinks=False)
+            except FileNotFoundError:
+                continue
+            if stat.S_ISREG(status.st_mode):
+                total += status.st_size
     return total
 
 
@@ -118,6 +127,22 @@ class Store:
     def _read_history(self, key):
         status, entries, _ = read_history_file(self.history_path(key))
         return status, entries
+
+    def stored_bytes(self):
+        return tree_size(self.root / "conversations")
+
+    def _make_room(self):
+        """Called under the conversation lock with the new copy already counted,
+        so GC cannot remove the conversation being written."""
+        if self.stored_bytes() <= self.max_total_bytes:
+            return
+        self.gc()
+        stored = self.stored_bytes()
+        if stored > self.max_total_bytes:
+            raise CapacityError(
+                f"image store is full ({stored} bytes; limit is {self.max_total_bytes}) "
+                "and nothing more can be collected"
+            )
 
     def gc(self):
         """Remove conversations not updated for more than the GC age, then the
@@ -190,6 +215,7 @@ class Store:
         temporary, sha256, image_format = self._copy_in(source_path, archive_dir)
         try:
             with self._conversation_lock(key):
+                self._make_room()
                 entry = Entry(
                     sha256=sha256,
                     name=Path(source_path).name,

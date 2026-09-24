@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from herdr_image_viewer.store import NewerSchema, Store
+from herdr_image_viewer.store import CapacityError, NewerSchema, Store
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
 
@@ -303,17 +303,43 @@ class GcTest(StoreFixture):
 
     def test_sizes_ignore_files_removed_while_gc_walks_the_tree(self):
         self.store.publish("claude:s1", self.image("a.png", PNG + b"a"))
-        real_stat = Path.stat
+        real_stat = os.stat
 
         def vanishing_stat(path, *args, **kwargs):
-            if path.name.endswith(".png"):
+            if str(path).endswith(".png"):
                 raise FileNotFoundError(path)
             return real_stat(path, *args, **kwargs)
 
-        with mock.patch.object(Path, "stat", vanishing_stat):
+        with mock.patch("herdr_image_viewer.store.os.stat", vanishing_stat):
             self.store.gc()
 
         self.assertEqual(len(self.store.history("claude:s1")), 1)
+
+    def test_publish_makes_room_or_fails_with_a_capacity_error_keeping_the_history(self):
+        self.store.publish("claude:old", self.image("old.png", PNG + bytes(400)))
+        self.now += 1
+        self.store.publish("claude:current", self.image("kept.png", PNG + b"kept"))
+        self.store.max_total_bytes = self.stored_bytes()
+
+        self.now += 1
+        self.store.publish("claude:current", self.image("room.png", PNG + bytes(300)))
+
+        self.assertFalse(self.store.conversation_dir("claude:old").exists())
+        self.assertEqual([e.name for e in self.store.history("claude:current")], ["kept.png", "room.png"])
+
+        # Now only protected data exists besides the conversation being written.
+        self.store.publish("claude:protected", self.image("p.png", PNG + b"p"))
+        self.store.history_path("claude:protected").write_bytes(b'{"schema_version": 2}')
+        before = self.store.history_path("claude:current").read_bytes()
+        self.store.max_total_bytes = self.stored_bytes()
+
+        with self.assertRaises(CapacityError):
+            self.store.publish("claude:current", self.image("too-big.png", PNG + bytes(5000)))
+
+        self.assertEqual(self.store.history_path("claude:current").read_bytes(), before)
+        archive = self.store.conversation_dir("claude:current") / "archive"
+        self.assertEqual([p.name for p in archive.iterdir() if p.name.startswith(".")], [])
+        self.assertTrue(self.store.conversation_dir("claude:protected").exists())
 
 
 if __name__ == "__main__":
