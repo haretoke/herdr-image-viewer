@@ -245,6 +245,11 @@ checks at the end.
       sips HEIC reads 124x46, the padded coded size.)
 - [x] publish refuses an image above the pixel cap, or one whose size cannot be read, before it enters the history
 - [x] a conversation directory that never got a history (its first publish was refused) is collected after the GC age
+      (Its mtime stands in for updated_at. The conversation lock is not held
+      while publish copies into it, but a directory being copied into is the
+      newest candidate, so trimming reaches it only when protected
+      conversations alone exceed the cap, and then that publish would fail
+      with a capacity error anyway.)
       (until now the pixel cap was a checked function that no image went
       through; only ImageMagick had resource limits)
 - [x] storage directories are 0700 and files 0600; foreign-owned or symlinked storage is refused
@@ -348,6 +353,7 @@ checks at the end.
 - [x] `publish` of an unsafe file, an invalid key, or a full store exits 1 with a message and opens nothing; an open that fails or times out (below the reservation) exits 1
 - [x] `gc` runs the collector once
 - [x] the `open` action opens the viewer of the last conversation published from the focused pane
+- [ ] a viewer pane opened without publish's env (from the Herdr UI) uses the store root Herdr gives the plugin and says in its title to use the open action, instead of dying with a KeyError before its error log is set up
 - [x] the manifest declares the viewer pane and the open action, and `herdr plugin link` of the clone lists both (Mac)
       (2026-09-24): `herdr plugin link` listed the `viewer` pane and the
       `open` action; invoking `open` ran `python3 -m herdr_image_viewer open`
