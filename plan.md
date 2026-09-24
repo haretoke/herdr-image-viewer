@@ -314,7 +314,7 @@ checks at the end.
 - [ ] q, SIGTERM, SIGHUP, and EOF exit and restore the TTY
 - [x] arrow key escape sequences split across reads are parsed
 - [x] the viewer picks up a newly published image without input
-- [ ] an entry whose archive is missing shows a placeholder
+- [x] an entry whose archive is missing shows a placeholder
 - [ ] a conversation removed by GC turns into an empty view
 - [ ] an unexpected error is logged to a file under the state directory before the viewer exits
 

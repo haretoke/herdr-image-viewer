@@ -4,7 +4,7 @@ import time
 from collections import OrderedDict
 from dataclasses import dataclass
 
-from . import composite, herdr_api, layout, limits, png, safety
+from . import composite, herdr_api, imaging, layout, limits, png, safety
 
 MAIN_CACHE_ENTRIES = 8
 REFIT_DELAYS = (0.3, 1.0)
@@ -69,14 +69,13 @@ class Selection:
         position = self.index()
         return None if position is None else self.entries[position]
 
+    def label(self):
+        return f"{self.index() + 1}/{len(self.entries)} {safety.display_text(self.current().name)}"
+
     def title(self, size):
-        entry = self.current()
         width, height = size
         marker = " [new]" if self.has_new else ""
-        return (
-            f"{self.index() + 1}/{len(self.entries)} {safety.display_text(entry.name)} "
-            f"{width}x{height}{marker}"
-        )
+        return f"{self.label()} {width}x{height}{marker}"
 
 
 KEYS = {b"h": "left", b"j": "down", b"k": "up", b"l": "right", b"q": "quit", b"Q": "quit"}
@@ -231,17 +230,25 @@ class Renderer:
         current = selection.current()
         if current is None:
             return
-        size = self.images.size(current)
-        placement = layout.fit(*size, result.main, pane.cell_w, pane.cell_h)
-        main_key = (current.sha256, placement)
-        if main_key != self.sent.get("main"):
-            self.display.send_main(
-                self.main_png(current, placement.width, placement.height),
-                placement.width,
-                placement.height,
-                herdr_placement(placement.col, placement.row, placement.cols, placement.rows),
-            )
-            self.sent["main"] = main_key
+        try:
+            size = self.images.size(current)
+            placement = layout.fit(*size, result.main, pane.cell_w, pane.cell_h)
+            main_key = (current.sha256, placement)
+            if main_key != self.sent.get("main"):
+                self.display.send_main(
+                    self.main_png(current, placement.width, placement.height),
+                    placement.width,
+                    placement.height,
+                    herdr_placement(placement.col, placement.row, placement.cols, placement.rows),
+                )
+                self.sent["main"] = main_key
+            title = selection.title(size)
+        except (imaging.ImagingError, OSError) as error:
+            # The archive is gone or cannot be converted: show why instead.
+            if self.sent.get("main") != ("unavailable", current.sha256):
+                self.display.clear_main()
+                self.sent["main"] = ("unavailable", current.sha256)
+            title = f"{selection.label()} unavailable: {safety.display_text(str(error))}"
         if result.grid is not None:
             try:
                 self.draw_thumbs(selection, result.grid, pane)
@@ -251,7 +258,7 @@ class Renderer:
                 # Out of layers or graphics memory: keep the main image, drop thumbnails.
                 self.thumbs_enabled = False
                 self.display.drop_thumbs()
-        title = selection.title(size) + ("" if self.thumbs_enabled else " [no thumbnails]")
+        title += "" if self.thumbs_enabled else " [no thumbnails]"
         if title != self.sent.get("title"):
             self.display.show_title(title)
             self.sent["title"] = title
@@ -278,9 +285,12 @@ class Renderer:
             )
             entry = selection.entries[position]
             inner = 2 * composite.BORDER_PX
-            thumb_size = fit_pixels(*self.images.size(entry), slot.width - inner, slot.height - inner)
             slots.append(slot)
-            thumbs.append(self.thumb(entry, *thumb_size))
+            try:
+                thumb_size = fit_pixels(*self.images.size(entry), slot.width - inner, slot.height - inner)
+                thumbs.append(self.thumb(entry, *thumb_size))
+            except (imaging.ImagingError, OSError):
+                thumbs.append(None)  # an empty slot
         canvas = composite.render(width, height, slots, thumbs, selected=index - visible.start)
         self.display.send_thumbs(png.encode_rgb(width, height, canvas), width, height,
                                  herdr_placement(left, top, cols, rows))

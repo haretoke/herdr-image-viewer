@@ -2,6 +2,7 @@ import unittest
 
 from herdr_image_viewer import composite, limits
 from herdr_image_viewer.herdr_api import HerdrError
+from herdr_image_viewer.imaging import ImagingError
 from herdr_image_viewer.store import Entry
 from herdr_image_viewer.viewer import KeyParser, Pane, Renderer, Selection, Viewer
 
@@ -86,15 +87,23 @@ class FakeImages:
     def __init__(self):
         self.main_conversions = []
         self.thumb_conversions = []
+        self.missing = set()
+
+    def check(self, entry):
+        if entry.name in self.missing:
+            raise ImagingError(f"archive of {entry.name} is missing")
 
     def size(self, entry):
+        self.check(entry)
         return 200, 100
 
     def main_png(self, entry, width, height):
+        self.check(entry)
         self.main_conversions.append((entry.name, width, height))
         return f"main {entry.name} {width}x{height}".encode()
 
     def thumb(self, entry, width, height):
+        self.check(entry)
         self.thumb_conversions.append((entry.name, width, height))
         return composite.prepare(width, height, bytes([90, 90, 90, 255]) * (width * height))
 
@@ -131,6 +140,9 @@ class FakeDisplay:
 
     def drop_thumbs(self):
         self.thumbs_dropped += 1
+
+    def clear_main(self):
+        self.main_frames.append((b"cleared -", None))
 
     def show_title(self, text):
         self.titles.append(text)
@@ -202,6 +214,20 @@ class ViewerTest(unittest.TestCase):
         self.viewer.step()
 
         self.assertEqual(self.shown(), ["12.png", "13.png"])
+
+    def test_an_entry_whose_archive_is_missing_shows_a_placeholder(self):
+        self.images.missing.add("11.png")
+        thumbs_sent = len(self.display.thumb_frames)
+
+        self.viewer.on_input(b"h")
+        self.viewer.step()
+
+        self.assertEqual(self.shown(), ["12.png", "-"])  # the main layer is cleared
+        self.assertEqual(self.display.titles[-1], "11/12 11.png unavailable: archive of 11.png is missing")
+        self.assertEqual(len(self.display.thumb_frames), thumbs_sent + 1)  # the others still show
+        self.viewer.on_input(b"l")
+        self.viewer.step()
+        self.assertEqual(self.shown()[-1], "12.png")
 
     def test_a_move_blocked_at_an_end_sends_nothing(self):
         self.viewer.on_input(b"l")  # already on the newest image
