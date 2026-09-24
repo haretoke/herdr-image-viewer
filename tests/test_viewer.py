@@ -189,6 +189,22 @@ class ViewerTest(unittest.TestCase):
         # The 200x100 px image (20x5 cells) is centered in the final 50 columns.
         self.assertEqual(self.display.main_frames[-1][1]["viewport_col"], 15)
 
+    def test_a_viewer_started_with_a_stale_pty_size_refits_after_the_next_sigwinch(self):
+        # Opened in a hidden tab: the pty still has the whole tab's nominal size.
+        self.pane = Pane(cols=140, rows=40, cell_w=10, cell_h=20)
+        viewer = Viewer(Renderer(self.display, self.images), lambda: self.entries,
+                        lambda: self.pane, clock=lambda: self.now)
+        viewer.step()
+        stale = self.display.main_frames[-1][1]
+
+        self.pane = Pane(cols=60, rows=40, cell_w=10, cell_h=20)  # the tab is shown
+        viewer.on_resize()
+        self.now += 0.3
+        viewer.step()
+
+        self.assertNotEqual(self.display.main_frames[-1][1], stale)
+        self.assertEqual(self.display.main_frames[-1][1]["viewport_col"], (60 - 20) // 2)
+
 
 if __name__ == "__main__":
     unittest.main()
