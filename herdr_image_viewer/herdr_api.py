@@ -8,6 +8,8 @@ import select
 import socket
 import uuid
 
+from . import limits
+
 MAX_LINE_BYTES = 1024 * 1024
 REJECTION_WAIT_SECONDS = 0.2
 
@@ -89,6 +91,10 @@ class GraphicsStream:
 
     def send(self, data, width, height, placement, image_format="png"):
         """Send one frame; a rejection closes the stream and raises HerdrError."""
+        if len(data) > limits.MAX_STREAM_FRAME_BYTES:
+            raise HerdrError(
+                f"frame is too large ({len(data)} bytes; Herdr accepts {limits.MAX_STREAM_FRAME_BYTES})"
+            )
         if self.client is None:
             self.open()
         header = {

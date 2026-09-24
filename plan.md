@@ -295,7 +295,7 @@ checks at the end.
 - [x] opening a stream waits for the ok reply
 - [x] a rejected frame is reported and closes the stream
 - [x] an EOF between frames is noticed without sending a frame
-- [ ] frames respect 16 MiB (limit -1/0/+1)
+- [x] frames respect 16 MiB (limit -1/0/+1)
 
 ### viewer (fake clock, PTY)
 - [ ] on start the viewer shows the newest entry and a "n/N name WxH" title

@@ -6,7 +6,7 @@ import time
 import unittest
 from pathlib import Path
 
-from herdr_image_viewer import herdr_api
+from herdr_image_viewer import herdr_api, limits
 
 
 class FakeHerdr:
@@ -132,6 +132,26 @@ class StreamFrameTest(unittest.TestCase):
         self.assertIsNotNone(stream.lost())
         self.assertFalse(stream.is_open())
         self.assertEqual(fake.frames, [])
+
+    def test_frames_respect_the_16_mib_limit(self):
+        def handler(fake, connection, reader, request):
+            fake.reply(connection, request)
+            while fake.read_frame(reader):
+                pass
+
+        fake, stream = self.open_stream(handler)
+        limit = limits.MAX_STREAM_FRAME_BYTES
+        self.assertEqual(limit, 16 * 1024 * 1024)
+
+        with self.assertRaisesRegex(herdr_api.HerdrError, "too large"):
+            stream.send(bytes(limit + 1), 1, 1, PLACEMENT)
+        stream.send(bytes(limit), 1, 1, PLACEMENT)
+        stream.send(bytes(limit - 1), 1, 1, PLACEMENT)
+        stream.close()
+        fake.thread.join(timeout=10)
+
+        self.assertEqual([header["data_length"] for header, _ in fake.frames], [limit, limit - 1])
+        self.assertEqual([length for _, length in fake.frames], [limit, limit - 1])
 
     def test_a_healthy_idle_stream_is_not_lost(self):
         def handler(fake, connection, reader, request):
