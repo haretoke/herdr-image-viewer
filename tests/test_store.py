@@ -1,5 +1,6 @@
 import hashlib
 import os
+import struct
 import subprocess
 import sys
 import tempfile
@@ -10,7 +11,8 @@ from unittest import mock
 
 from herdr_image_viewer.store import CapacityError, NewerSchema, Store
 
-PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+# 40 bytes: the signature and an IHDR chunk declaring 2x1 pixels (no image data).
+PNG = b"\x89PNG\r\n\x1a\n" + struct.pack(">I4sIIBBBBB", 13, b"IHDR", 2, 1, 8, 2, 0, 0, 0) + bytes(11)
 
 
 class StoreFixture(unittest.TestCase):
