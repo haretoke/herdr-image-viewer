@@ -13,7 +13,9 @@ from herdr_image_viewer.store import NewerSchema, Store
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
 
 
-class StoreTest(unittest.TestCase):
+class StoreFixture(unittest.TestCase):
+    """A store under a temp directory with a controllable clock."""
+
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.base = Path(self.directory.name)
@@ -30,6 +32,8 @@ class StoreTest(unittest.TestCase):
         path.write_bytes(content)
         return path
 
+
+class StoreTest(StoreFixture):
     def test_publishing_an_image_records_it_as_the_newest_entry_with_an_archived_copy(self):
         source = self.image("shot.png")
 
