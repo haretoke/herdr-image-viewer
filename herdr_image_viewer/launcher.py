@@ -12,11 +12,13 @@ import contextlib
 import fcntl
 import json
 import os
+import shutil
+import subprocess
 import time
 import uuid
 from pathlib import Path
 
-from . import keys, limits, safety
+from . import keys, limits, safety, state
 from .store import write_private_atomically
 
 FLAGS = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
@@ -60,6 +62,28 @@ def ensure_viewer(root, key, caller_pane, opener, clock=time.time):
         },
     )
     return "opened"
+
+
+def herdr_opener(environ):
+    """An opener that asks Herdr for the plugin's viewer pane right of the caller."""
+    herdr = environ.get("HERDR_BIN_PATH") or shutil.which("herdr", path=environ.get("PATH"))
+
+    def open_viewer(caller_pane, env):
+        argv = [
+            herdr, "plugin", "pane", "open",
+            "--plugin", state.PLUGIN_ID,
+            "--entrypoint", "viewer",
+            "--placement", "split",
+            "--target-pane", caller_pane,
+            "--direction", "right",
+            "--no-focus",
+        ]
+        for name, value in env.items():
+            argv += ["--env", f"{name}={value}"]
+        completed = subprocess.run(argv, capture_output=True, text=True, check=True)
+        return json.loads(completed.stdout)["result"]["plugin_pane"]["pane"]["pane_id"]
+
+    return open_viewer
 
 
 @contextlib.contextmanager
