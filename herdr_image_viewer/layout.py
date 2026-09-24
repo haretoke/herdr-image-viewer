@@ -38,6 +38,13 @@ class Layout:
     grid: Optional[Grid]
 
 
+def page(grid, count, index):
+    """History indices shown in the grid's cells: the page holding index."""
+    capacity = len(grid.cells)
+    first = index // capacity * capacity
+    return range(first, min(first + capacity, count))
+
+
 def move(grid, count, index, direction):
     """The selection after moving left/down/up/right on the logical grid of
     the whole history (pages are windows onto it)."""

@@ -268,7 +268,7 @@ checks at the end.
 - [x] an empty history lays out a placeholder
 - [x] unknown or zero pty or cell sizes produce no layout (wait for the next size)
 - [x] h/j/k/l move left/down/up/right and stop only at the ends of the history
-- [ ] moving past the visible page shows the next or previous page
+- [x] moving past the visible page shows the next or previous page
 - [ ] a move onto a ragged last row lands on the nearest existing cell
 - [ ] with thumbnails hidden h/l step through the history and j/k do nothing
 - [ ] the main image is fitted inside its area, centered, never upscaled

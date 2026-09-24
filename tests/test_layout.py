@@ -86,6 +86,16 @@ class MoveTest(unittest.TestCase):
             (1, "right"): 7, (7, "left"): 1, (3, "left"): 3,
         })
 
+    def test_moving_past_the_visible_page_shows_the_next_or_previous_page(self):
+        # Below holds 10 per page, Right 12; the page is the window around the selection.
+        self.assertEqual(layout.page(BELOW, 23, 9), range(0, 10))
+        after = layout.move(BELOW, 23, 9, "right")
+        self.assertEqual(layout.page(BELOW, 23, after), range(10, 20))
+        self.assertEqual(layout.page(BELOW, 23, layout.move(BELOW, 23, after, "left")), range(0, 10))
+        self.assertEqual(layout.page(BELOW, 23, layout.move(BELOW, 23, 7, "down")), range(10, 20))
+        self.assertEqual(layout.page(BELOW, 23, 22), range(20, 23))
+        self.assertEqual(layout.page(RIGHT, 30, layout.move(RIGHT, 30, 11, "down")), range(12, 24))
+
 
 if __name__ == "__main__":
     unittest.main()
