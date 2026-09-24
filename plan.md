@@ -298,7 +298,7 @@ checks at the end.
 - [x] frames respect 16 MiB (limit -1/0/+1)
 
 ### viewer (fake clock, PTY)
-- [ ] on start the viewer shows the newest entry and a "n/N name WxH" title
+- [x] on start the viewer shows the newest entry and a "n/N name WxH" title
 - [ ] with follow_latest a newly published image becomes the selection
 - [ ] after moving to an older image a new image keeps the selection and marks "new"
 - [ ] moving back to the newest image turns follow_latest on and clears "new"
