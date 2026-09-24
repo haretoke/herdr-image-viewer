@@ -20,7 +20,7 @@ import uuid
 from pathlib import Path
 
 from . import keys, limits, safety, state
-from .store import write_private_atomically
+from .store import Store, write_private_atomically
 
 FLAGS = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
 
@@ -40,6 +40,14 @@ def run_paths(root, key):
         "reservation": run / f"{name}.reservation",
         "registration": run / f"{name}.registration",
     }
+
+
+def publish_and_show(root, key, image, socket_path, caller_pane, opener):
+    """Archive the image, remember where it came from, and make sure a viewer
+    shows its conversation. Returns ensure_viewer's status."""
+    Store(root).publish(key, image)
+    remember_caller(root, socket_path, caller_pane, key)
+    return ensure_viewer(root, key, caller_pane, opener)
 
 
 def caller_record(root, socket_path, pane_id):

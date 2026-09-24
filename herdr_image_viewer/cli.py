@@ -46,12 +46,16 @@ def publish_image(environ, image, key, caller_pane):
     if not keys.valid_key(key):
         return fail(f"invalid conversation key {key!r}")
     root = state.store_root(environ)
+    socket_path = environ.get("HERDR_SOCKET_PATH", "")
     try:
-        Store(root).publish(key, Path(image))
+        status = launcher.publish_and_show(root, key, Path(image), socket_path, caller_pane,
+                                           launcher.herdr_opener(environ))
+    except launcher.OpenFailed as error:
+        return fail(f"could not open the viewer: {error}")
     except (safety.UnsafeInput, CapacityError, NewerSchema, OSError) as error:
         return fail(error)
-    launcher.remember_caller(root, environ.get("HERDR_SOCKET_PATH", ""), caller_pane, key)
-    return show(environ, root, key, caller_pane)
+    print(status)
+    return 0
 
 
 def open_for_focused_pane(environ):
