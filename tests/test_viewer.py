@@ -196,6 +196,13 @@ class ViewerTest(unittest.TestCase):
 
         self.assertEqual(self.shown(), ["12.png", "9.png"])
 
+    def test_the_viewer_picks_up_a_newly_published_image_without_input(self):
+        self.entries = self.entries + [entry(13)]
+
+        self.viewer.step()
+
+        self.assertEqual(self.shown(), ["12.png", "13.png"])
+
     def test_a_move_blocked_at_an_end_sends_nothing(self):
         self.viewer.on_input(b"l")  # already on the newest image
         self.viewer.step()

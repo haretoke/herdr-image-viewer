@@ -120,6 +120,7 @@ class Viewer:
 
     def __init__(self, renderer, read_history, read_pane, clock=time.monotonic):
         self.renderer = renderer
+        self.read_history = read_history
         self.read_pane = read_pane
         self.clock = clock
         self.selection = Selection()
@@ -149,6 +150,10 @@ class Viewer:
 
     def step(self):
         now = self.clock()
+        entries = self.read_history()
+        if entries != self.selection.entries:  # a publish (or GC) changed the history
+            self.selection.update(entries)
+            self.dirty = True
         reason = self.renderer.display.lost()
         if reason is not None:
             self.retry_later(reason)
