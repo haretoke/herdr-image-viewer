@@ -2,7 +2,7 @@ import unittest
 
 from herdr_image_viewer import composite, limits
 from herdr_image_viewer.store import Entry
-from herdr_image_viewer.viewer import Pane, Renderer, Selection
+from herdr_image_viewer.viewer import Pane, Renderer, Selection, Viewer
 
 
 def entry(number, name=None):
@@ -140,6 +140,24 @@ class RendererTest(unittest.TestCase):
         renderer.draw(self.selection, PANE)  # 1.png had been dropped: converted again
         self.assertEqual([name for name, _, _ in self.images.thumb_conversions].count("1.png"), 2)
         self.assertEqual(limits.THUMB_CACHE_BYTES, 32 * 1024 * 1024)
+
+
+class ViewerTest(unittest.TestCase):
+    def setUp(self):
+        self.images = FakeImages()
+        self.display = FakeDisplay()
+        self.entries = [entry(number) for number in range(1, 13)]
+        self.viewer = Viewer(Renderer(self.display, self.images), lambda: self.entries, lambda: PANE)
+        self.viewer.step()
+
+    def shown(self):
+        return [data.split()[1].decode() for data, _ in self.display.main_frames]
+
+    def test_repeated_keys_coalesce_into_one_redraw_of_the_last_selection(self):
+        self.viewer.on_input(b"hhh")
+        self.viewer.step()
+
+        self.assertEqual(self.shown(), ["12.png", "9.png"])
 
 
 if __name__ == "__main__":

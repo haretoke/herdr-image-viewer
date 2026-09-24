@@ -76,6 +76,36 @@ class Selection:
         )
 
 
+KEYS = {b"h": "left", b"j": "down", b"k": "up", b"l": "right"}
+
+
+class Viewer:
+    """The pane loop's decisions, free of terminal and socket I/O.
+
+    Input changes the selection right away; drawing happens once per step, so
+    a burst of keys redraws only the last selection.
+    """
+
+    def __init__(self, renderer, read_history, read_pane):
+        self.renderer = renderer
+        self.read_pane = read_pane
+        self.selection = Selection()
+        self.selection.update(read_history())
+        self.dirty = True
+
+    def on_input(self, data):
+        for byte in data:
+            direction = KEYS.get(bytes([byte]))
+            if direction is not None:
+                self.selection.move(direction, self.renderer.grid)
+                self.dirty = True
+
+    def step(self):
+        if self.dirty:
+            self.renderer.draw(self.selection, self.read_pane())
+            self.dirty = False
+
+
 def herdr_placement(col, row, cols, rows):
     return {"viewport_col": col, "viewport_row": row, "grid_cols": cols, "grid_rows": rows}
 

@@ -305,7 +305,7 @@ checks at the end.
 - [x] the selection follows its content hash when entries move or the selected one is dropped
 - [x] moving the selection re-sends the main image and the composite, converting only a newly selected image (thumbnails and revisited images come from caches)
 - [x] the thumbnail cache stays within 32 MiB, dropping the least recently used
-- [ ] repeated keys coalesce into one redraw of the last selection
+- [x] repeated keys coalesce into one redraw of the last selection
 - [ ] a move blocked at an end sends nothing
 - [ ] SIGWINCH bursts are debounced (fake clock) and identical frames are not re-sent
 - [ ] a viewer started with a stale pty size re-fits after the next SIGWINCH
