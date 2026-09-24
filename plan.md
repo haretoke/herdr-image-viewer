@@ -309,7 +309,7 @@ checks at the end.
 - [x] a move blocked at an end sends nothing
 - [x] SIGWINCH bursts are debounced (fake clock) and identical frames are not re-sent
 - [x] a viewer started with a stale pty size re-fits after the next SIGWINCH
-- [ ] a lost stream is restored without input, with backoff, and gives up with a message
+- [x] a lost stream is restored without input, with backoff, and gives up with a message
 - [ ] a resource error drops the thumbnails first and then reports the main image as unavailable
 - [ ] q, SIGTERM, SIGHUP, and EOF exit and restore the TTY
 - [ ] arrow key escape sequences split across reads are parsed

@@ -4,10 +4,11 @@ import time
 from collections import OrderedDict
 from dataclasses import dataclass
 
-from . import composite, layout, limits, png, safety
+from . import composite, herdr_api, layout, limits, png, safety
 
 MAIN_CACHE_ENTRIES = 8
 REFIT_DELAYS = (0.3, 1.0)
+RETRY_DELAYS = (1, 2, 4, 8, 16, 30)  # after a lost stream; then give up
 
 
 @dataclass(frozen=True)
@@ -96,6 +97,9 @@ class Viewer:
         self.selection.update(read_history())
         self.dirty = True
         self.refits = []
+        self.retry_at = None
+        self.failures = 0
+        self.gave_up = False
 
     def on_resize(self):
         """Re-fit once the layout settles and once more late (as the old
@@ -113,12 +117,37 @@ class Viewer:
 
     def step(self):
         now = self.clock()
+        reason = self.renderer.display.lost()
+        if reason is not None:
+            self.retry_later(reason)
+        if self.gave_up:
+            return
+        if self.retry_at is not None:
+            if now < self.retry_at:
+                return
+            self.retry_at = None
+            self.renderer.invalidate()  # everything must be sent again
+            self.dirty = True
         if self.refits and now >= self.refits[0]:
             self.refits = [deadline for deadline in self.refits if deadline > now]
             self.dirty = True
         if self.dirty:
-            self.renderer.draw(self.selection, self.read_pane())
+            try:
+                self.renderer.draw(self.selection, self.read_pane())
+            except herdr_api.HerdrError as error:
+                self.retry_later(str(error))
+                return
             self.dirty = False
+            self.failures = 0
+
+    def retry_later(self, reason):
+        """Redraw after the next backoff delay, or give up with a message."""
+        if self.failures >= len(RETRY_DELAYS):
+            self.gave_up = True
+            self.renderer.display.show_title(f"cannot show images: {safety.display_text(reason)}")
+            return
+        self.retry_at = self.clock() + RETRY_DELAYS[self.failures]
+        self.failures += 1
 
 
 def herdr_placement(col, row, cols, rows):
@@ -147,6 +176,10 @@ class Renderer:
         self.thumb_cache_size = 0
         self.thumb_cache_bytes = thumb_cache_bytes
         self.sent = {}  # what each frame last showed, to skip identical re-sends
+
+    def invalidate(self):
+        """Forget what was sent, so the next draw sends every frame again."""
+        self.sent.clear()
 
     def draw(self, selection, pane):
         result = layout.compute(pane.cols, pane.rows, pane.cell_w, pane.cell_h, len(selection.entries))

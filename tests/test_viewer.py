@@ -1,6 +1,7 @@
 import unittest
 
 from herdr_image_viewer import composite, limits
+from herdr_image_viewer.herdr_api import HerdrError
 from herdr_image_viewer.store import Entry
 from herdr_image_viewer.viewer import Pane, Renderer, Selection, Viewer
 
@@ -92,8 +93,17 @@ class FakeDisplay:
         self.main_frames = []
         self.thumb_frames = []
         self.titles = []
+        self.lost_reasons = []
+        self.failing = False
+        self.attempts = 0
+
+    def lost(self):
+        return self.lost_reasons.pop(0) if self.lost_reasons else None
 
     def send_main(self, data, width, height, placement):
+        self.attempts += 1
+        if self.failing:
+            raise HerdrError("Herdr refused the graphics stream: layer limit")
         self.main_frames.append((data, placement))
 
     def send_thumbs(self, data, width, height, placement):
@@ -204,6 +214,31 @@ class ViewerTest(unittest.TestCase):
 
         self.assertNotEqual(self.display.main_frames[-1][1], stale)
         self.assertEqual(self.display.main_frames[-1][1]["viewport_col"], (60 - 20) // 2)
+
+    def test_a_lost_stream_is_restored_without_input_with_backoff_and_gives_up(self):
+        self.display.lost_reasons.append("Herdr closed the connection")
+        self.now = 10.0
+        self.viewer.step()  # noticed; the first retry waits a second
+        self.assertEqual(len(self.display.main_frames), 1)
+        self.now = 11.0
+        self.viewer.step()
+        self.assertEqual(len(self.display.main_frames), 2)  # restored without any input
+
+        self.display.failing = True
+        self.display.lost_reasons.append("Herdr closed the connection")
+        self.now = 20.0
+        self.viewer.step()
+        attempts_at = []
+        for second in range(21, 200):
+            before = self.display.attempts
+            self.now = float(second)
+            self.viewer.step()
+            if self.display.attempts > before:
+                attempts_at.append(second)
+
+        self.assertEqual(attempts_at, [21, 23, 27, 35, 51, 81])  # 1, 2, 4, 8, 16, 30 s apart
+        self.assertIn("cannot show images", self.display.titles[-1])
+        self.assertIn("layer limit", self.display.titles[-1])
 
 
 if __name__ == "__main__":
