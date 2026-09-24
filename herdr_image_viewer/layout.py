@@ -10,6 +10,7 @@ from typing import Optional, Tuple
 THUMB_TARGET_PX = (96, 60)
 GAP_COLS = 1
 GRID_ROWS_BELOW = 2
+GRID_COLUMNS_RIGHT = 2
 
 
 @dataclass(frozen=True)
@@ -44,6 +45,13 @@ def thumb_size(cell_w, cell_h):
 
 def compute(cols, rows, cell_w, cell_h, count):
     thumb_cols, thumb_rows = thumb_size(cell_w, cell_h)
+    if rows * cell_h >= cols * cell_w:
+        return below(cols, rows, thumb_cols, thumb_rows)
+    return right(cols, rows, thumb_cols, thumb_rows)
+
+
+def below(cols, rows, thumb_cols, thumb_rows):
+    """Row-major grid under the main image."""
     columns = (cols + GAP_COLS) // (thumb_cols + GAP_COLS)
     grid_top = rows - GRID_ROWS_BELOW * thumb_rows
     cells = tuple(
@@ -53,3 +61,17 @@ def compute(cols, rows, cell_w, cell_h, count):
     )
     main = Rect(col=0, row=1, cols=cols, rows=grid_top - 2)  # title above, separator below
     return Layout(main=main, grid=Grid("below", columns, GRID_ROWS_BELOW, cells))
+
+
+def right(cols, rows, thumb_cols, thumb_rows):
+    """Column-major grid right of the main image, following the history order."""
+    per_column = (rows - 1) // thumb_rows
+    width = GRID_COLUMNS_RIGHT * thumb_cols + (GRID_COLUMNS_RIGHT - 1) * GAP_COLS
+    left = cols - width
+    cells = tuple(
+        Rect(col=left + c * (thumb_cols + GAP_COLS), row=1 + r * thumb_rows, cols=thumb_cols, rows=thumb_rows)
+        for c in range(GRID_COLUMNS_RIGHT)
+        for r in range(per_column)
+    )
+    main = Rect(col=0, row=1, cols=left - 1, rows=rows - 1)  # separator column before the grid
+    return Layout(main=main, grid=Grid("right", GRID_COLUMNS_RIGHT, per_column, cells))

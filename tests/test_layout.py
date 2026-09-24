@@ -19,6 +19,18 @@ class LayoutTest(unittest.TestCase):
         self.assertEqual(result.grid.cells[1], Rect(col=11, row=34, cols=10, rows=3))
         self.assertEqual(result.grid.cells[5], Rect(col=0, row=37, cols=10, rows=3))
 
+    def test_a_wide_pane_places_the_thumbnail_grid_in_columns_on_the_right(self):
+        # 120x20 cells = 1200x400 px: wider than tall. Two columns of 10x3 cells
+        # plus a gap take 21 columns; the column before them separates the image.
+        result = layout.compute(cols=120, rows=20, cell_w=CELL_W, cell_h=CELL_H, count=12)
+
+        self.assertEqual(result.grid.orientation, "right")
+        self.assertEqual((result.grid.columns, result.grid.rows), (2, 6))
+        self.assertEqual(result.main, Rect(col=0, row=1, cols=98, rows=19))
+        self.assertEqual(result.grid.cells[0], Rect(col=99, row=1, cols=10, rows=3))
+        self.assertEqual(result.grid.cells[1], Rect(col=99, row=4, cols=10, rows=3))
+        self.assertEqual(result.grid.cells[6], Rect(col=110, row=1, cols=10, rows=3))
+
 
 if __name__ == "__main__":
     unittest.main()
