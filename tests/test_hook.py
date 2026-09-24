@@ -4,10 +4,11 @@ import json
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
-from herdr_image_viewer import png
+from herdr_image_viewer import hook, png
 from herdr_image_viewer.store import Store
 from tests.test_cli import FAKE_HERDR
 
@@ -148,6 +149,52 @@ class HookTest(unittest.TestCase):
         key = f"pane:{self.base / 'herdr.sock'}#w1:p3"
         self.assertEqual([entry.name for entry in Store(self.store_root).history(key)], ["shot one.png"])
 
+
+    def write_herdr(self, script):
+        (self.bin / "herdr").write_text("#!/bin/sh\n" + script)
+        (self.bin / "herdr").chmod(0o755)
+
+    def hook_log(self):
+        path = self.store_root / "hook.log"
+        return path.read_text() if path.exists() else ""
+
+    def test_the_disable_variable_turns_the_hook_off(self):
+        result = self.run_hook(self.payload(self.image), direct=True, HERDR_IMAGE_VIEWER_HOOK="0")
+
+        self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b"", b""))
+        self.assertEqual(self.herdr_calls(), [])
+        self.assertEqual(self.conversations(), [])
+
+    def test_errors_exit_0_quietly_and_are_logged_under_the_state_directory(self):
+        fake = self.project / "fake.png"
+        fake.write_text("not an image")
+        cases = {
+            "a refused file": (self.payload(fake), None, "not a supported image"),
+            "a failed open": (self.payload(self.image), "echo 'error: no such pane' >&2\nexit 3\n",
+                              "could not open the viewer: error: no such pane"),
+        }
+        for label, (payload, herdr, reason) in cases.items():
+            with self.subTest(label):
+                if herdr:
+                    self.write_herdr(herdr)
+                result = self.run_hook(payload, direct=True)
+
+                self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b"", b""))
+                self.assertIn(reason, self.hook_log())
+                self.assertEqual((self.store_root / "hook.log").stat().st_mode & 0o777, 0o600)
+
+    def test_the_hook_gives_up_within_its_budget_when_herdr_hangs(self):
+        self.write_herdr("exec sleep 30\n")
+        environ = {"PATH": str(self.bin), "HOME": str(self.base), "XDG_STATE_HOME": str(self.base / "state"),
+                   "HERDR_SOCKET_PATH": str(self.base / "herdr.sock"), "HERDR_PANE_ID": "w1:p3"}
+        started = time.monotonic()
+
+        status = hook.claude_read(environ, json.dumps(self.payload(self.image)).encode(), budget=0.5)
+
+        self.assertEqual(status, 0)
+        self.assertLess(time.monotonic() - started, 3)
+        self.assertIn("gave up after 0.5 s", self.hook_log())
+        self.assertEqual(len(Store(self.store_root).history("claude:s1")), 1)  # published before the open
 
 if __name__ == "__main__":
     unittest.main()

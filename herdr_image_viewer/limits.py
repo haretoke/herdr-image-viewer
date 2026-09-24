@@ -17,3 +17,4 @@ MAX_STREAM_FRAME_BYTES = 16 * MIB  # Herdr PANE_GRAPHICS_STREAM_MAX_BYTES
 THUMB_CACHE_BYTES = 32 * MIB
 OPEN_RESERVATION_SECONDS = 15
 OPEN_TIMEOUT_SECONDS = 10  # below the reservation, so a slow open is never retried
+HOOK_BUDGET_SECONDS = 20  # above the open timeout; Claude's hook timeout is 30 s

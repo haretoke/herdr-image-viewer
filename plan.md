@@ -349,7 +349,7 @@ checks at the end.
 ### hook
 - [x] the plugin hook publishes image files and ignores other files
 - [x] malformed JSON, wrong types, and paths with spaces, quotes, or newlines are handled; relative paths resolve against the hook cwd
-- [ ] the hook finishes within its time budget, always exits 0, and honors its disable variable
+- [x] the hook finishes within its time budget, always exits 0, and honors its disable variable
 
 ### integration (devcon-herdr)
 - [ ] `devcon-herdr plugins update` locks the plugin's latest release, and an old lock without it gains the entry

@@ -1,17 +1,36 @@
 """The agent side: Claude Code's PostToolUse hook for the Read tool."""
 
+import contextlib
 import json
 import os
+import signal
+import time
+import traceback
 from pathlib import Path
 
-from . import keys, launcher, state
+from . import keys, launcher, limits, safety, state
+from .store import CapacityError, NewerSchema
 
 # The formats safety.image_format accepts; other reads never touch the store.
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff", ".heic", ".heif"}
 
 
-def claude_read(environ, stdin):
-    """Publish the image Claude just read and make sure its viewer is open."""
+class GaveUp(Exception):
+    """The hook's time budget ran out."""
+
+
+# Failures with a clear cause get one log line; anything else a traceback.
+EXPECTED = (safety.UnsafeInput, CapacityError, NewerSchema, OSError, GaveUp)
+
+
+def claude_read(environ, stdin, budget=limits.HOOK_BUDGET_SECONDS):
+    """Publish the image Claude just read and make sure its viewer is open.
+
+    Never fails Claude's tool call: returns 0 and logs errors to hook.log
+    under the store root. HERDR_IMAGE_VIEWER_HOOK=0 turns it off.
+    """
+    if environ.get("HERDR_IMAGE_VIEWER_HOOK", "1") == "0":
+        return 0
     socket_path, caller_pane = environ.get("HERDR_SOCKET_PATH"), environ.get("HERDR_PANE_ID")
     if not socket_path or not caller_pane:
         return 0  # not inside Herdr
@@ -24,8 +43,43 @@ def claude_read(environ, stdin):
         return 0
     root = state.store_root(environ)
     key = keys.conversation_key(payload, socket_path, caller_pane)
-    launcher.publish_and_show(root, key, image, socket_path, caller_pane, launcher.herdr_opener(environ))
+    name = safety.display_text(str(image))  # file names may hold newlines or escapes
+    try:
+        with time_limit(budget):
+            launcher.publish_and_show(root, key, image, socket_path, caller_pane, launcher.herdr_opener(environ))
+    except launcher.OpenFailed as error:
+        log(root, f"{name}: could not open the viewer: {error}")
+    except EXPECTED as error:
+        log(root, f"{name}: {error}")
+    except Exception:
+        log(root, f"{name}: unexpected error\n{traceback.format_exc()}")
     return 0
+
+
+@contextlib.contextmanager
+def time_limit(seconds):
+    """Raise GaveUp in the main thread once seconds have passed."""
+    def give_up(*_):
+        raise GaveUp(f"gave up after {seconds} s")
+
+    previous = signal.signal(signal.SIGALRM, give_up)
+    signal.setitimer(signal.ITIMER_REAL, seconds)
+    try:
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous)
+
+
+def log(root, text):
+    path = Path(root) / "hook.log"
+    try:
+        safety.private_directory(path.parent)
+        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        with os.fdopen(descriptor, "a", encoding="utf-8") as handle:
+            handle.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} {text.rstrip()}\n")
+    except (OSError, safety.UnsafeInput):
+        pass  # nowhere left to report it
 
 
 def image_read(payload):
