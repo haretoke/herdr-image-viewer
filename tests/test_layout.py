@@ -64,5 +64,28 @@ class LayoutTest(unittest.TestCase):
                 self.assertIsNone(layout.compute(cols=cols, rows=rows, cell_w=cell_w, cell_h=cell_h, count=3))
 
 
+BELOW = layout.compute(cols=60, rows=40, cell_w=CELL_W, cell_h=CELL_H, count=12).grid  # 5 x 2
+RIGHT = layout.compute(cols=120, rows=20, cell_w=CELL_W, cell_h=CELL_H, count=12).grid  # 2 x 6
+
+
+class MoveTest(unittest.TestCase):
+    def assertMoves(self, grid, count, cases):
+        for (start, direction), expected in cases.items():
+            with self.subTest(start=start, direction=direction):
+                self.assertEqual(layout.move(grid, count, start, direction), expected)
+
+    def test_moves_go_left_down_up_right_and_stop_only_at_the_ends_of_the_history(self):
+        # Below: row-major, five per row; left/right continue across rows.
+        self.assertMoves(BELOW, 12, {
+            (0, "right"): 1, (11, "right"): 11, (0, "left"): 0, (5, "left"): 4,
+            (1, "down"): 6, (5, "down"): 10, (6, "up"): 1, (2, "up"): 2,
+        })
+        # Right: column-major, six per column; up/down continue across columns.
+        self.assertMoves(RIGHT, 12, {
+            (0, "down"): 1, (11, "down"): 11, (6, "up"): 5, (0, "up"): 0,
+            (1, "right"): 7, (7, "left"): 1, (3, "left"): 3,
+        })
+
+
 if __name__ == "__main__":
     unittest.main()

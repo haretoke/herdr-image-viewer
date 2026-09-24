@@ -38,6 +38,22 @@ class Layout:
     grid: Optional[Grid]
 
 
+def move(grid, count, index, direction):
+    """The selection after moving left/down/up/right on the logical grid of
+    the whole history (pages are windows onto it)."""
+    if grid.orientation == "below":  # row-major
+        along, across, stride = {"left": -1, "right": 1}, {"up": -1, "down": 1}, grid.columns
+    else:  # column-major
+        along, across, stride = {"up": -1, "down": 1}, {"left": -1, "right": 1}, grid.rows
+    if direction in along:
+        target = index + along[direction]
+    elif direction in across:
+        target = index + across[direction] * stride
+    else:
+        return index
+    return target if 0 <= target < count else index
+
+
 def thumb_size(cell_w, cell_h):
     """Thumbnail size in cells, close to THUMB_TARGET_PX."""
     return (
