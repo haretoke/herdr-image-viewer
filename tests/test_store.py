@@ -84,6 +84,21 @@ class StoreTest(unittest.TestCase):
         for entry in history:
             self.assertTrue(self.store.archive_path("claude:s1", entry).exists(), entry.name)
 
+    def test_histories_of_different_conversation_keys_are_independent(self):
+        shared = self.image("shared.png", PNG + b"shared")
+        self.store.publish("claude:s1", shared)
+        self.store.publish("claude:s1", self.image("only-s1.png", PNG + b"s1"))
+        self.store.publish("pane:/run/herdr.sock#w1:p3", shared)
+
+        self.assertEqual([e.name for e in self.store.history("claude:s1")], ["shared.png", "only-s1.png"])
+        other = self.store.history("pane:/run/herdr.sock#w1:p3")
+        self.assertEqual([e.name for e in other], ["shared.png"])
+        self.assertNotEqual(
+            self.store.archive_path("claude:s1", other[0]),
+            self.store.archive_path("pane:/run/herdr.sock#w1:p3", other[0]),
+        )
+        self.assertEqual(self.store.history("claude:unknown"), [])
+
 
 if __name__ == "__main__":
     unittest.main()

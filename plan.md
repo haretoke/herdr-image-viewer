@@ -245,7 +245,7 @@ checks at the end.
 - [x] publishing the same content again moves it to the newest position
 - [x] publishing new content at an already published path adds a new entry
 - [x] the history keeps at most 30 entries (29, 30, 31) and deletes archives no entry references
-- [ ] histories of different conversation keys are independent
+- [x] histories of different conversation keys are independent
 - [ ] concurrent publishes to one conversation do not lose entries
 - [ ] an entry stays viewable from the archive after its source is deleted
 - [ ] a crash after archiving but before replacing the history leaves the old history intact
