@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from herdr_image_viewer import safety
+from herdr_image_viewer import limits, safety
 
 
 class OpenSourceTest(unittest.TestCase):
@@ -55,6 +55,20 @@ class ImageFormatTest(unittest.TestCase):
             with self.subTest(head=head):
                 with self.assertRaises(safety.UnsafeInput):
                     safety.image_format(head)
+
+
+class CapsTest(unittest.TestCase):
+    def test_files_above_the_size_cap_are_rejected(self):
+        safety.check_size(limits.MAX_INPUT_BYTES)
+        with self.assertRaises(safety.UnsafeInput):
+            safety.check_size(limits.MAX_INPUT_BYTES + 1)
+
+    def test_images_above_the_pixel_cap_or_without_pixels_are_rejected(self):
+        safety.check_pixels(10_000, limits.MAX_INPUT_PIXELS // 10_000)
+        for width, height in ((limits.MAX_INPUT_PIXELS + 1, 1), (0, 10), (10, 0)):
+            with self.subTest(width=width, height=height):
+                with self.assertRaises(safety.UnsafeInput):
+                    safety.check_pixels(width, height)
 
 
 if __name__ == "__main__":

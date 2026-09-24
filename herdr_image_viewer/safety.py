@@ -3,9 +3,27 @@
 import os
 import stat
 
+from . import limits
+
 
 class UnsafeInput(Exception):
     pass
+
+
+def check_size(byte_count):
+    if byte_count > limits.MAX_INPUT_BYTES:
+        raise UnsafeInput(
+            f"image is too large ({byte_count} bytes; limit is {limits.MAX_INPUT_BYTES})"
+        )
+
+
+def check_pixels(width, height):
+    if width <= 0 or height <= 0:
+        raise UnsafeInput(f"image has no pixels ({width}x{height})")
+    if width * height > limits.MAX_INPUT_PIXELS:
+        raise UnsafeInput(
+            f"image has too many pixels ({width}x{height}; limit is {limits.MAX_INPUT_PIXELS})"
+        )
 
 
 HEIF_BRANDS = {b"heic", b"heix", b"hevc", b"hevx", b"mif1", b"msf1"}

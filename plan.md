@@ -35,7 +35,7 @@ Fable; this revision applies the adopted findings and the owner's decisions.
   content is a new entry.
 - Archive: per conversation, content-addressed inside the conversation
   directory. GC (see Limits) removes conversations untouched for 14 days and
-  trims the total to 500 MB, least recently updated first. It never deletes a
+  trims the total to 500 MiB, least recently updated first. It never deletes a
   conversation whose store lock is held.
 - Storage root: `HERDR_PLUGIN_STATE_DIR` when it belongs to this plugin
   (`HERDR_PLUGIN_ID` matches); otherwise the path Herdr uses,
@@ -78,15 +78,15 @@ Fable; this revision applies the adopted findings and the owner's decisions.
 |---|---|
 | history entries per conversation | 30 |
 | GC age | 14 days since `updated_at` |
-| GC total | 500 MB of archive + history files, temp files older than 1 h included |
+| GC total | 500 MiB of archive + history files, temp files older than 1 h included |
 | GC frequency | at most once per hour, run by `publish` |
-| input file size | 50 MB |
+| input file size | 50 MiB |
 | input pixels | 100 megapixels |
 | external conversion timeout | 20 s |
 | stream frame | 16 MiB (Herdr limit) |
 | `set` data | 512 KiB (Herdr limit, not used by the viewer) |
 | composite canvas budget | 65,536 pixels, reduced page capacity if exceeded |
-| thumbnail cache | 32 MB of RGBA |
+| thumbnail cache | 32 MiB of RGBA |
 | open reservation | 15 s |
 | stream reconnect | backoff 1 s → 30 s, then stop and report |
 
@@ -236,7 +236,7 @@ checks at the end.
 ### safety
 - [x] symlinks, FIFOs, and directories are rejected; content is copied from the opened regular file
 - [x] files whose magic bytes are not a supported image are rejected
-- [ ] files above the size or pixel caps are rejected
+- [x] files above the size or pixel caps are rejected
 - [ ] storage directories are 0700 and files 0600; foreign-owned or symlinked storage is refused
 - [ ] control characters in file names never reach the title
 
@@ -252,7 +252,7 @@ checks at the end.
 - [ ] a corrupt history is moved aside and its archives are kept
 - [ ] a history with an unknown schema version is neither modified nor collected
 - [ ] GC removes conversations whose `updated_at` is older than 14 days (boundary ±1 s)
-- [ ] GC trims the total below 500 MB oldest first (boundary ±1 byte) and skips locked conversations
+- [ ] GC trims the total below 500 MiB oldest first (boundary ±1 byte) and skips locked conversations
 - [ ] two GC runs at once and GC during a publish to another conversation stay consistent
 - [ ] publish fails with a capacity error when GC cannot free enough space, keeping the history
 
