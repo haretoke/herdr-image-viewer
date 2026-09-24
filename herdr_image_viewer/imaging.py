@@ -114,9 +114,70 @@ def to_png(data, image_format, timeout=limits.CONVERT_TIMEOUT_SECONDS):
     return result
 
 
-def run_first_available(commands, target, timeout):
+BGRA_MASKS = (0xFF0000, 0xFF00, 0xFF, 0xFF000000)
+
+
+def thumbnail_rgba(data, width, height, timeout=limits.CONVERT_TIMEOUT_SECONDS):
+    """Straight RGBA pixels (top row first) of a PNG resized to width x height.
+
+    sips writes a 32 bpp BGRA bitfield BMP; ImageMagick and ffmpeg write raw
+    RGBA. Output of the wrong length is refused.
+    """
+    with tempfile.TemporaryDirectory(prefix="herdr-image-viewer-") as directory:
+        source = Path(directory) / "source.png"
+        target = Path(directory) / "thumbnail.out"
+        source.write_bytes(data)
+        size = f"{width}x{height}!"
+        commands = {
+            "sips": ["-s", "format", "bmp", "--resampleHeightWidth", str(height), str(width),
+                     str(source), "--out", str(target)],
+            "magick": [*MAGICK_LIMITS, str(source), "-resize", size, "-depth", "8", f"RGBA:{target}"],
+            "convert": [*MAGICK_LIMITS, str(source), "-resize", size, "-depth", "8", f"RGBA:{target}"],
+            "ffmpeg": ["-v", "error", "-y", "-i", str(source), "-vf", f"scale={width}:{height}",
+                       "-f", "rawvideo", "-pix_fmt", "rgba", str(target)],
+        }
+        tool, output = run_first_available(commands, target, timeout, with_tool=True)
+    if tool == "sips":
+        bmp_width, bmp_height, output = bmp_rgba(output)
+        if (bmp_width, bmp_height) != (width, height):
+            raise ImagingError(f"thumbnail is {bmp_width}x{bmp_height}, not {width}x{height}")
+    if len(output) != width * height * 4:
+        raise ImagingError(f"thumbnail has {len(output)} bytes, not {width * height * 4}")
+    return output
+
+
+def bmp_rgba(data):
+    """(width, height, RGBA top row first) of the BMPs sips writes: 24 bpp BI_RGB
+    for opaque images, 32 bpp BGRA bitfields for images with alpha."""
+    try:
+        if data[:2] != b"BM":
+            raise ImagingError("not a BMP")
+        (offset,) = struct.unpack_from("<I", data, 10)
+        _, width, height, _, bits, compression = struct.unpack_from("<IiiHHI", data, 14)
+        masks = struct.unpack_from("<IIII", data, 54) if compression == 3 else None
+    except struct.error as error:
+        raise ImagingError("truncated BMP") from error
+    supported = (bits == 24 and compression == 0) or (bits == 32 and masks == BGRA_MASKS)
+    if not supported or width <= 0 or height == 0:
+        raise ImagingError("unsupported BMP layout")
+    rows, pixel_bytes = abs(height), bits // 8
+    row_bytes = width * pixel_bytes
+    stride = (row_bytes + 3) & ~3  # rows are padded to 4 bytes
+    if len(data) < offset + rows * stride:
+        raise ImagingError("truncated BMP pixels")
+    order = range(rows) if height < 0 else range(rows - 1, -1, -1)  # positive height: bottom-up
+    pixels = b"".join(data[offset + row * stride:offset + row * stride + row_bytes] for row in order)
+    rgba = bytearray(width * rows * 4)
+    rgba[0::4] = pixels[2::pixel_bytes]
+    rgba[1::4] = pixels[1::pixel_bytes]
+    rgba[2::4] = pixels[0::pixel_bytes]
+    rgba[3::4] = pixels[3::4] if pixel_bytes == 4 else b"\xff" * (width * rows)
+    return width, rows, bytes(rgba)
+
+
+def run_first_available(commands, target, timeout, with_tool=False):
     """Try the tools found on PATH in the order given; return target's bytes
-    from the first that succeeds."""
+    from the first that succeeds (with the tool's name if with_tool)."""
     errors = []
     for tool, arguments in commands.items():
         executable = shutil.which(tool)
@@ -134,7 +195,7 @@ def run_first_available(commands, target, timeout):
             errors.append(f"{tool}: timed out after {timeout} s")
             continue
         if completed.returncode == 0 and target.is_file():
-            return target.read_bytes()
+            return (tool, target.read_bytes()) if with_tool else target.read_bytes()
         detail = completed.stderr.decode("utf-8", "replace").strip().splitlines()
         errors.append(f"{tool}: {detail[-1] if detail else 'failed'}")
     if not errors:

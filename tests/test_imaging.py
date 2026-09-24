@@ -29,9 +29,18 @@ elif "-resize" in arguments:
 out = arguments[arguments.index("--out") + 1] if "--out" in arguments else arguments[-1].split(":", 1)[-1]
 def chunk(kind, data):
     return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
-rows = (b"\\x00" + b"\\x01\\x02\\x03" * width) * height
-open(out, "wb").write(b"\\x89PNG\\r\\n\\x1a\\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
-                     + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b""))
+if "bmp" in arguments:  # like sips: BITMAPV5HEADER, 32 bpp BGRA bitfields, top-down
+    header = struct.pack("<IiiHHIIiiII", 124, width, -height, 1, 32, 3, width * height * 4, 2835, 2835, 0, 0)
+    header += struct.pack("<IIII", 0xFF0000, 0xFF00, 0xFF, 0xFF000000) + bytes(124 - 56)
+    pixels = b"\\x03\\x02\\x01\\xff" * (width * height)
+    open(out, "wb").write(b"BM" + struct.pack("<IHHI", 14 + 124 + len(pixels), 0, 0, 14 + 124) + header + pixels)
+elif arguments[-1].startswith("RGBA:"):
+    raw = b"\\x01\\x02\\x03\\xff" * (width * height)
+    open(out, "wb").write(raw[:-1] if os.environ.get("FAKE_SHORT") else raw)
+else:
+    rows = (b"\\x00" + b"\\x01\\x02\\x03" * width) * height
+    open(out, "wb").write(b"\\x89PNG\\r\\n\\x1a\\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+                         + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b""))
 """
 
 
@@ -145,6 +154,38 @@ class ConvertTest(FakeToolsTest):
         call = self.calls()[-1]
         self.assertEqual(call[0], "sips")
         self.assertEqual(call[call.index("-r") + 1], "90")
+
+    def test_thumbnail_pixels_are_read_as_rgba_and_a_wrong_length_is_rejected(self):
+        expected = bytes([1, 2, 3, 255]) * 6
+        self.install("magick")
+        self.assertEqual(imaging.thumbnail_rgba(solid_png(40, 20), 3, 2), expected)
+        with mock.patch.dict(os.environ, {"FAKE_SHORT": "1"}):
+            with self.assertRaises(imaging.ImagingError):
+                imaging.thumbnail_rgba(solid_png(40, 20), 3, 2)
+
+        self.install("sips")  # BMP output, as on macOS
+        self.assertEqual(imaging.thumbnail_rgba(solid_png(40, 20), 3, 2), expected)
+        self.assertEqual(self.calls()[-1][0], "sips")
+
+    def test_bottom_up_bmps_are_read_top_row_first(self):
+        header = struct.pack("<IiiHHIIiiII", 124, 1, 2, 1, 32, 3, 8, 0, 0, 0, 0)
+        header += struct.pack("<IIII", 0xFF0000, 0xFF00, 0xFF, 0xFF000000) + bytes(124 - 56)
+        rows = b"\x00\x00\xff\xff" + b"\xff\x00\x00\xff"  # stored bottom row (red) first, then blue
+        bmp = b"BM" + struct.pack("<IHHI", 14 + 124 + 8, 0, 0, 14 + 124) + header + rows
+
+        self.assertEqual(imaging.bmp_rgba(bmp), (1, 2, bytes([0, 0, 255, 255, 255, 0, 0, 255])))
+
+    def test_24_bit_bmps_with_padded_rows_are_read_as_opaque_rgba(self):
+        # What sips writes for an opaque source: BITMAPINFOHEADER, 24 bpp BI_RGB,
+        # top-down, 3 pixels = 9 bytes padded to 12 per row.
+        header = struct.pack("<IiiHHIIiiII", 40, 3, -2, 1, 24, 0, 24, 0, 0, 0, 0)
+        rows = b"\x00\x00\xff" * 3 + b"\x00" * 3 + b"\xff\x00\x00" * 3 + b"\x00" * 3
+        bmp = b"BM" + struct.pack("<IHHI", 14 + 40 + len(rows), 0, 0, 14 + 40) + header + rows
+
+        width, height, rgba = imaging.bmp_rgba(bmp)
+
+        self.assertEqual((width, height), (3, 2))
+        self.assertEqual(rgba, bytes([255, 0, 0, 255]) * 3 + bytes([0, 0, 255, 255]) * 3)
 
     def test_a_png_is_returned_as_it_is(self):
         data = solid_png(3, 3)

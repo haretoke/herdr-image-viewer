@@ -286,7 +286,10 @@ checks at the end.
 - [x] resizing gives up after its time limit and reports an error
 - [x] a GIF or TIFF converts its first frame
 - [x] EXIF orientation is applied
-- [ ] thumbnail pixels are read as RGBA and a wrong length is rejected
+- [x] thumbnail pixels are read as RGBA and a wrong length is rejected
+      (a real-tool check found that sips writes 24 bpp BI_RGB with padded rows
+      for opaque sources; spike 0-5 had only seen the 32 bpp bitfield layout
+      it writes for sources with alpha)
 
 ### herdr_api
 - [ ] opening a stream waits for the ok reply
