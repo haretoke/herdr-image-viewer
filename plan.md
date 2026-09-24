@@ -60,13 +60,18 @@ Fable; this revision applies the adopted findings and the owner's decisions.
   title shows a "new" marker when images arrive; moving back to the newest image
   turns it on again and clears the marker. If the selected entry falls out of
   the history, the nearest remaining entry is selected.
-- Claude hook: one shim, `~/.claude/hooks/herdr-image-viewer-hook.sh`,
-  registered once by devcon-herdr. The Mac and WSL2 share nothing, but WSL2 and
-  every container share one `~/.claude` (bind mount), so the shim decides at run
-  time: if this environment has the plugin (its `plugin_root` from
-  `herdr plugin list --json`), it calls the plugin's `publish`; otherwise it
-  falls back to the old herdr-image-preview follower path. No
-  environment-specific path goes into settings.json.
+- Claude hook: the shim is the hook devcon-herdr already distributes,
+  `~/.claude/hooks/herdr-image-preview-hook.sh`, keeping its file name and its
+  settings.json entry (changed on 2026-09-24 from a renamed
+  `herdr-image-viewer-hook.sh`: a rename would only add a registration
+  migration). The Mac and WSL2 share nothing, but WSL2 and every container
+  share one `~/.claude` (bind mount), so the shim decides at run time, after
+  its image-suffix check: if this environment has the plugin (its
+  `plugin_root` from `herdr plugin list --json`), it hands the payload to the
+  plugin's `hooks/claude-read.sh`; otherwise it falls back to the old
+  herdr-image-preview follower path. No environment-specific path goes into
+  settings.json. Replacing the hook file in the shared `~/.claude` switches
+  WSL2 and every container at once, so it waits for the owner's go-ahead.
 - The plugin owns the hook logic and all rendering (single source of truth).
   The old herdr-image-preview is frozen and kept as the fallback and for Codex
   until the Codex skill uses `publish` and its other uses (`--clear`, `--info`)
@@ -366,11 +371,13 @@ checks at the end.
 - [x] the hook finishes within its time budget, always exits 0, and honors its disable variable
 
 ### integration (devcon-herdr)
-- [ ] `devcon-herdr plugins update` locks the plugin's latest release, and an old lock without it gains the entry
+- [ ] an old plugin lock without the image viewer still pins the other plugins, and the image viewer uses its bootstrap release
+- [ ] `devcon-herdr plugins update` locks the plugin's latest release
 - [ ] devcon-herdr installs the locked commit on the Mac and in a container and skips it when already current
+- [ ] a locally linked plugin (development on the Mac) is reported and left alone; Herdr refuses to install over a link
 - [ ] a failed install keeps the previous version
-- [ ] the shared hook shim calls the plugin where it is linked and falls back to the old preview path where it is not (Mac, WSL2 host, container)
-- [ ] registering the shim is idempotent, keeps other settings, and replaces the old preview hook entry
+- [ ] the shared hook shim calls the plugin where it is installed and falls back to the old preview path where it is not (Mac, WSL2 host, container)
+- [ ] the shim keeps the hook's file name and settings entry, so registration stays idempotent and keeps other settings (the existing registrar tests)
 - [ ] real devices: Mac local, WSL2 thin client, publish into a hidden tab then show it, several conversations, reconnect, transfer volume while browsing
 
 ## Open items
