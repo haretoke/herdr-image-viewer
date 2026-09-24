@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -146,6 +147,19 @@ class CliTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual([call[0] for call in self.herdr_calls()], ["herdr-of-this-server"])
 
+
+    def test_gc_collects_expired_conversations(self):
+        fifteen_days_ago = time.time() - 15 * 24 * 3600
+        Store(self.store_root).publish("claude:new", self.image)
+        # Published last, so its own periodic GC ran at that old time.
+        Store(self.store_root, clock=lambda: fifteen_days_ago).publish("claude:old", self.image)
+        self.assertEqual(len(Store(self.store_root).history("claude:old")), 1)
+
+        result = self.run_cli("gc")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(Store(self.store_root).history("claude:old"), [])
+        self.assertEqual(len(Store(self.store_root).history("claude:new")), 1)
 
 if __name__ == "__main__":
     unittest.main()

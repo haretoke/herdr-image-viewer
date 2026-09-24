@@ -1,5 +1,6 @@
 """Command line: `viewer` runs the pane process; `publish` adds an image to a
-conversation's history and makes sure a viewer shows that conversation."""
+conversation's history and makes sure a viewer shows that conversation; `gc`
+collects the store now instead of waiting for the next hourly run."""
 
 import argparse
 import os
@@ -19,12 +20,16 @@ def main(argv, environ=None):
     publish.add_argument("image")
     publish.add_argument("--conversation", required=True)
     publish.add_argument("--caller-pane", required=True)
+    commands.add_parser("gc", help="remove expired conversations and trim the store")
     args = parser.parse_args(argv)
 
     if args.command == "viewer":
         from . import app
 
         return app.run_from_environment(environ)
+    if args.command == "gc":
+        Store(state.store_root(environ)).gc()
+        return 0
     if not keys.valid_key(args.conversation):
         return fail(f"invalid conversation key {args.conversation!r}")
     root = state.store_root(environ)
