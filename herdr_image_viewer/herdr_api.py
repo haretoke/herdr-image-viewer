@@ -55,6 +55,26 @@ def rejection(line):
     return None if error is None else error[0]
 
 
+def request(socket_path, method, params, timeout=10):
+    """One request on its own connection; returns the result or raises HerdrError."""
+    request_id = f"herdr-image-viewer:{uuid.uuid4().hex}"
+    encoded = json.dumps({"id": request_id, "method": method, "params": params},
+                         separators=(",", ":")).encode("utf-8") + b"\n"
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+            client.settimeout(timeout)
+            client.connect(socket_path)
+            client.sendall(encoded)
+            with client.makefile("rb") as reader:
+                line = reader.readline(MAX_LINE_BYTES + 1)
+    except (OSError, TimeoutError) as error:
+        raise HerdrError(f"could not reach Herdr: {error}") from error
+    error = reply_error(line)
+    if error is not None:
+        raise HerdrError(f"Herdr rejected {method}: {error[0]}", error[1])
+    return json.loads(line).get("result", {})
+
+
 class GraphicsStream:
     """A pane.graphics.stream connection owning one layer of a pane.
 

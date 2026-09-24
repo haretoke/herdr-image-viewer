@@ -311,7 +311,7 @@ checks at the end.
 - [x] a viewer started with a stale pty size re-fits after the next SIGWINCH
 - [x] a lost stream is restored without input, with backoff, and gives up with a message
 - [x] a resource error drops the thumbnails first and then reports the main image as unavailable
-- [ ] q, SIGTERM, SIGHUP, and EOF exit and restore the TTY
+- [x] q, SIGTERM, SIGHUP, and EOF exit and restore the TTY
 - [x] arrow key escape sequences split across reads are parsed
 - [x] the viewer picks up a newly published image without input
 - [x] an entry whose archive is missing shows a placeholder
