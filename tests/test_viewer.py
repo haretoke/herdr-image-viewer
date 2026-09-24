@@ -137,7 +137,8 @@ class RendererTest(unittest.TestCase):
 
         self.assertLessEqual(renderer.thumb_cache_size, 2 * 27_648)
         self.assertEqual([key[0] for key in renderer.thumb_cache], [entry(2).sha256, entry(3).sha256])
-        renderer.draw(self.selection, PANE)  # 1.png had been dropped: converted again
+        self.selection.move("left", renderer.grid)
+        renderer.draw(self.selection, PANE)  # the page is redrawn; 1.png had been dropped
         self.assertEqual([name for name, _, _ in self.images.thumb_conversions].count("1.png"), 2)
         self.assertEqual(limits.THUMB_CACHE_BYTES, 32 * 1024 * 1024)
 
@@ -147,7 +148,10 @@ class ViewerTest(unittest.TestCase):
         self.images = FakeImages()
         self.display = FakeDisplay()
         self.entries = [entry(number) for number in range(1, 13)]
-        self.viewer = Viewer(Renderer(self.display, self.images), lambda: self.entries, lambda: PANE)
+        self.pane = PANE
+        self.now = 0.0
+        self.viewer = Viewer(Renderer(self.display, self.images), lambda: self.entries,
+                             lambda: self.pane, clock=lambda: self.now)
         self.viewer.step()
 
     def shown(self):
@@ -165,6 +169,25 @@ class ViewerTest(unittest.TestCase):
 
         self.assertEqual(self.shown(), ["12.png"])
         self.assertEqual(len(self.display.thumb_frames), 1)
+
+    def test_sigwinch_bursts_are_debounced_and_identical_frames_are_not_resent(self):
+        for at, cols in ((0.0, 58), (0.1, 56), (0.2, 50)):
+            self.now = at
+            self.pane = Pane(cols=cols, rows=40, cell_w=10, cell_h=20)
+            self.viewer.on_resize()
+        self.now = 0.45
+        self.viewer.step()
+        self.assertEqual(len(self.display.main_frames), 1)  # still settling
+
+        self.now = 0.5
+        self.viewer.step()
+        self.now = 1.2  # the late re-fit finds nothing changed
+        self.viewer.step()
+
+        self.assertEqual(len(self.display.main_frames), 2)
+        self.assertEqual(len(self.display.thumb_frames), 2)
+        # The 200x100 px image (20x5 cells) is centered in the final 50 columns.
+        self.assertEqual(self.display.main_frames[-1][1]["viewport_col"], 15)
 
 
 if __name__ == "__main__":

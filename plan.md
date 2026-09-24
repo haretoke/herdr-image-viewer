@@ -307,7 +307,7 @@ checks at the end.
 - [x] the thumbnail cache stays within 32 MiB, dropping the least recently used
 - [x] repeated keys coalesce into one redraw of the last selection
 - [x] a move blocked at an end sends nothing
-- [ ] SIGWINCH bursts are debounced (fake clock) and identical frames are not re-sent
+- [x] SIGWINCH bursts are debounced (fake clock) and identical frames are not re-sent
 - [ ] a viewer started with a stale pty size re-fits after the next SIGWINCH
 - [ ] a lost stream is restored without input, with backoff, and gives up with a message
 - [ ] a resource error drops the thumbnails first and then reports the main image as unavailable

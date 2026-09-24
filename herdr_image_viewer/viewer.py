@@ -1,11 +1,13 @@
 """The viewer pane: selection state, frame planning, and the terminal loop."""
 
+import time
 from collections import OrderedDict
 from dataclasses import dataclass
 
 from . import composite, layout, limits, png, safety
 
 MAIN_CACHE_ENTRIES = 8
+REFIT_DELAYS = (0.3, 1.0)
 
 
 @dataclass(frozen=True)
@@ -86,12 +88,20 @@ class Viewer:
     a burst of keys redraws only the last selection.
     """
 
-    def __init__(self, renderer, read_history, read_pane):
+    def __init__(self, renderer, read_history, read_pane, clock=time.monotonic):
         self.renderer = renderer
         self.read_pane = read_pane
+        self.clock = clock
         self.selection = Selection()
         self.selection.update(read_history())
         self.dirty = True
+        self.refits = []
+
+    def on_resize(self):
+        """Re-fit once the layout settles and once more late (as the old
+        follower did); identical frames are not re-sent."""
+        now = self.clock()
+        self.refits = [now + delay for delay in REFIT_DELAYS]
 
     def on_input(self, data):
         for byte in data:
@@ -102,6 +112,10 @@ class Viewer:
                 self.dirty = self.dirty or self.selection.selected != before
 
     def step(self):
+        now = self.clock()
+        if self.refits and now >= self.refits[0]:
+            self.refits = [deadline for deadline in self.refits if deadline > now]
+            self.dirty = True
         if self.dirty:
             self.renderer.draw(self.selection, self.read_pane())
             self.dirty = False
@@ -132,6 +146,7 @@ class Renderer:
         self.thumb_cache = OrderedDict()
         self.thumb_cache_size = 0
         self.thumb_cache_bytes = thumb_cache_bytes
+        self.sent = {}  # what each frame last showed, to skip identical re-sends
 
     def draw(self, selection, pane):
         result = layout.compute(pane.cols, pane.rows, pane.cell_w, pane.cell_h, len(selection.entries))
@@ -143,15 +158,21 @@ class Renderer:
             return
         size = self.images.size(current)
         placement = layout.fit(*size, result.main, pane.cell_w, pane.cell_h)
-        self.display.send_main(
-            self.main_png(current, placement.width, placement.height),
-            placement.width,
-            placement.height,
-            herdr_placement(placement.col, placement.row, placement.cols, placement.rows),
-        )
+        main_key = (current.sha256, placement)
+        if main_key != self.sent.get("main"):
+            self.display.send_main(
+                self.main_png(current, placement.width, placement.height),
+                placement.width,
+                placement.height,
+                herdr_placement(placement.col, placement.row, placement.cols, placement.rows),
+            )
+            self.sent["main"] = main_key
         if result.grid is not None:
             self.draw_thumbs(selection, result.grid, pane)
-        self.display.show_title(selection.title(size))
+        title = selection.title(size)
+        if title != self.sent.get("title"):
+            self.display.show_title(title)
+            self.sent["title"] = title
 
     def draw_thumbs(self, selection, grid, pane):
         index = selection.index()
@@ -161,6 +182,10 @@ class Renderer:
         cols = max(cell.col + cell.cols for cell in grid.cells) - left
         rows = max(cell.row + cell.rows for cell in grid.cells) - top
         width, height = cols * pane.cell_w, rows * pane.cell_h
+        thumbs_key = (tuple(selection.entries[p].sha256 for p in visible), index, grid, pane)
+        if thumbs_key == self.sent.get("thumbs"):
+            return
+        self.sent["thumbs"] = thumbs_key
         slots, thumbs = [], []
         for cell, position in zip(grid.cells, visible):
             slot = composite.Slot(
