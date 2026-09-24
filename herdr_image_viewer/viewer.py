@@ -18,13 +18,18 @@ class Selection:
 
     def update(self, entries):
         previous = {entry.sha256 for entry in self.entries}
+        previous_index = self.index()
         self.entries = list(entries)
         if not self.entries:
             return
         if self.follow_latest:
             self.selected = self.entries[-1].sha256
-        elif any(entry.sha256 not in previous for entry in self.entries):
+            return
+        if any(entry.sha256 not in previous for entry in self.entries):
             self.has_new = True
+        if self.index() is None:  # the selected entry fell out: take its nearest neighbor
+            nearest = min(previous_index or 0, len(self.entries) - 1)
+            self.selected = self.entries[nearest].sha256
 
     def move(self, direction, grid):
         position = self.index()

@@ -52,6 +52,20 @@ class SelectionTest(unittest.TestCase):
         selection.update([entry(1), entry(2), entry(3), entry(4), entry(5)])
         self.assertEqual(selection.current(), entry(5))
 
+    def test_the_selection_follows_its_content_when_entries_move_or_it_is_dropped(self):
+        selection = Selection()
+        selection.update([entry(1), entry(2), entry(3)])
+        selection.move("left", grid=None)
+
+        selection.update([entry(1), entry(3), entry(2)])  # 2 was republished
+        self.assertEqual(selection.current(), entry(2))
+
+        selection.move("left", grid=None)
+        selection.move("left", grid=None)
+        self.assertEqual(selection.current(), entry(1))
+        selection.update([entry(3), entry(2), entry(4)])  # 1 fell out of the history
+        self.assertEqual(selection.current(), entry(3))
+
 
 if __name__ == "__main__":
     unittest.main()
