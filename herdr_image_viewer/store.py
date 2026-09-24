@@ -49,6 +49,10 @@ class Entry:
 ENTRY_TYPES = {"sha256": str, "name": str, "source": str, "format": str, "published_at": (int, float)}
 
 
+def tree_size(directory):
+    return sum(path.stat().st_size for path in Path(directory).rglob("*") if path.is_file())
+
+
 def read_history_file(path):
     """Return (status, entries, updated_at) with status "missing", "ok",
     "corrupt", or "newer" (written by a newer version: never modified or
@@ -85,9 +89,10 @@ def valid_entry(item):
 
 
 class Store:
-    def __init__(self, root, clock=time.time):
+    def __init__(self, root, clock=time.time, max_total_bytes=limits.GC_MAX_TOTAL_BYTES):
         self.root = Path(root)
         self.clock = clock
+        self.max_total_bytes = max_total_bytes
 
     def conversation_dir(self, key):
         return self.root / "conversations" / keys.directory_name(key)
@@ -108,24 +113,49 @@ class Store:
         return status, entries
 
     def gc(self):
-        """Remove conversations not updated for more than the GC age."""
+        """Remove conversations not updated for more than the GC age, then the
+        least recently updated ones until the total fits max_total_bytes.
+
+        Conversations being written (locked) and protected ones are skipped.
+        """
         conversations = self.root / "conversations"
         if not conversations.is_dir():
             return
         for directory in conversations.iterdir():
-            if not self._expired(directory):
-                continue
-            with self._lock(directory.name, blocking=False) as held:
-                # Skip one being written; re-check once nothing can change it.
-                if held and self._expired(directory):
-                    shutil.rmtree(directory)
+            if self._expired(directory):
+                self._remove_unless_locked(directory, self._expired)
+        sizes = {directory: tree_size(directory) for directory in conversations.iterdir()}
+        total = sum(sizes.values())
+        for _, directory in sorted(
+            (updated_at, directory)
+            for directory in sizes
+            for updated_at in [self._collectable_since(directory)]
+            if updated_at is not None
+        ):
+            if total <= self.max_total_bytes:
+                break
+            if self._remove_unless_locked(directory, lambda d: self._collectable_since(d) is not None):
+                total -= sizes[directory]
 
-    def _expired(self, directory):
+    def _remove_unless_locked(self, directory, still_wanted):
+        with self._lock(directory.name, blocking=False) as held:
+            # Skip one being written; re-check once nothing can change it.
+            if held and still_wanted(directory):
+                shutil.rmtree(directory)
+                return True
+        return False
+
+    def _collectable_since(self, directory):
+        """updated_at of a conversation GC may remove, or None if it is protected."""
         # Newer-schema, corrupt, and set-aside histories are kept for inspection.
         if any(directory.glob("history.corrupt-*.json")):
-            return False
+            return None
         status, _, updated_at = read_history_file(directory / "history.json")
-        return status == "ok" and self.clock() - updated_at > limits.GC_MAX_AGE_SECONDS
+        return updated_at if status == "ok" else None
+
+    def _expired(self, directory):
+        updated_at = self._collectable_since(directory)
+        return updated_at is not None and self.clock() - updated_at > limits.GC_MAX_AGE_SECONDS
 
     def _set_aside(self, key):
         path = self.history_path(key)

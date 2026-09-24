@@ -228,6 +228,33 @@ class GcTest(StoreFixture):
             with self.subTest(key=key):
                 self.assertTrue(self.store.conversation_dir(key).exists())
 
+    def stored_bytes(self):
+        return sum(p.stat().st_size for p in (self.base / "state" / "conversations").rglob("*") if p.is_file())
+
+    def test_gc_trims_the_total_oldest_first_and_skips_conversations_being_written(self):
+        for number, key in enumerate(("claude:oldest", "claude:middle", "claude:newest")):
+            self.now += 1
+            self.store.publish(key, self.image(f"{number}.png", PNG + bytes(100 * (number + 1))))
+        total = self.stored_bytes()
+
+        self.store.max_total_bytes = total
+        self.store.gc()
+        self.assertEqual(self.stored_bytes(), total)
+
+        self.store.max_total_bytes = total - 1
+        with self.store._conversation_lock("claude:oldest"):  # a publish is writing it
+            self.store.gc()
+
+        self.assertTrue(self.store.conversation_dir("claude:oldest").exists())
+        self.assertFalse(self.store.conversation_dir("claude:middle").exists())
+        self.assertTrue(self.store.conversation_dir("claude:newest").exists())
+
+        self.store.max_total_bytes = self.stored_bytes() - 1
+        self.store.gc()
+
+        self.assertFalse(self.store.conversation_dir("claude:oldest").exists())
+        self.assertTrue(self.store.conversation_dir("claude:newest").exists())
+
 
 if __name__ == "__main__":
     unittest.main()
