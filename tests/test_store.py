@@ -1,0 +1,45 @@
+import hashlib
+import tempfile
+import unittest
+from pathlib import Path
+
+from herdr_image_viewer.store import Store
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+
+
+class StoreTest(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.base = Path(self.directory.name)
+        self.sources = self.base / "sources"
+        self.sources.mkdir()
+        self.now = 1_000_000.0
+        self.store = Store(self.base / "state", clock=lambda: self.now)
+
+    def tearDown(self):
+        self.directory.cleanup()
+
+    def image(self, name, content=PNG):
+        path = self.sources / name
+        path.write_bytes(content)
+        return path
+
+    def test_publishing_an_image_records_it_as_the_newest_entry_with_an_archived_copy(self):
+        source = self.image("shot.png")
+
+        self.store.publish("claude:s1", source)
+
+        history = self.store.history("claude:s1")
+        self.assertEqual(len(history), 1)
+        entry = history[-1]
+        self.assertEqual(entry.sha256, hashlib.sha256(PNG).hexdigest())
+        self.assertEqual(entry.name, "shot.png")
+        self.assertEqual(entry.source, str(source))
+        self.assertEqual(entry.format, "png")
+        self.assertEqual(entry.published_at, self.now)
+        self.assertEqual(self.store.archive_path("claude:s1", entry).read_bytes(), PNG)
+
+
+if __name__ == "__main__":
+    unittest.main()
