@@ -358,7 +358,7 @@ checks at the end.
 - [x] `publish` of an unsafe file, an invalid key, or a full store exits 1 with a message and opens nothing; an open that fails or times out (below the reservation) exits 1
 - [x] `gc` runs the collector once
 - [x] the `open` action opens the viewer of the last conversation published from the focused pane
-- [ ] a viewer pane opened without publish's env (from the Herdr UI) uses the store root Herdr gives the plugin and says in its title to use the open action, instead of dying with a KeyError before its error log is set up
+- [x] a viewer pane opened without publish's env (from the Herdr UI) uses the store root Herdr gives the plugin and shows, wrapped to the pane, how to get a viewer (read an image in Claude, or the open action) until q, instead of dying with a KeyError before its error log is set up
 - [x] the manifest declares the viewer pane and the open action, and `herdr plugin link` of the clone lists both (Mac)
       (2026-09-24): `herdr plugin link` listed the `viewer` pane and the
       `open` action; invoking `open` ran `python3 -m herdr_image_viewer open`

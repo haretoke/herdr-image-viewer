@@ -209,6 +209,24 @@ class ViewerProcessTest(unittest.TestCase):
         self.assertEqual(self.herdr.events, [])
         self.assertNotIn(b"\x1b[?1049h", self.output)
 
+    def test_a_viewer_opened_without_publish_env_explains_itself_and_waits_for_q(self):
+        process, master = self.start(
+            HERDR_IMAGE_VIEWER_STORE=None,
+            HERDR_IMAGE_VIEWER_CONVERSATION=None,
+            HERDR_PLUGIN_ID="haretoke.image-viewer",
+            HERDR_PLUGIN_STATE_DIR=str(self.store_root),
+        )
+        self.drain(master, 1.0)
+        self.assertIsNone(process.poll())  # still open, so the message can be read
+        self.assertIn(b"use the Open image viewer action", b" ".join(self.output.split()))  # wrapped
+
+        os.write(master, b"q")
+
+        self.assertEqual(self.wait_exit(process, master), 0)
+        self.assertEqual(self.herdr.events, [])
+        self.assertIn(b"\x1b[?1049l", self.output)
+        self.assertFalse((self.store_root / "viewer.log").exists())
+
     def test_the_pane_going_away_ends_the_viewer(self):
         process, master = self.start()
         self.assertTrue(self.herdr.wait_for(("frame", "main")), self.herdr.events)

@@ -5,12 +5,13 @@ import select
 import signal
 import sys
 import termios
+import textwrap
 import traceback
 import tty
 import uuid
 from pathlib import Path
 
-from . import composite, herdr_api, imaging, launcher, logfile, safety
+from . import composite, herdr_api, imaging, launcher, logfile, safety, state
 from .store import Store
 from .viewer import Pane, Renderer, Viewer
 
@@ -151,15 +152,40 @@ def run(viewer, terminal):
         viewer.on_input(data)
 
 
+NO_CONVERSATION = (
+    "no conversation to show here: read an image in Claude, or use the "
+    "Open image viewer action from its pane (q closes)"
+)
+
+
 def run_from_environment(environ):
     """Run the viewer; an unexpected error is logged before exiting with 1,
-    since a crashing pane closes and takes its output with it (spike 0-2)."""
-    root = Path(environ["HERDR_IMAGE_VIEWER_STORE"])
+    since a crashing pane closes and takes its output with it (spike 0-2).
+
+    publish passes the store and the conversation. A pane opened another way
+    (from Herdr's UI) has neither: it uses the store Herdr gives the plugin
+    and says how to get a viewer instead of closing at once.
+    """
+    store = environ.get("HERDR_IMAGE_VIEWER_STORE")
+    root = Path(store) if store else state.store_root(environ)
     try:
+        if not environ.get("HERDR_IMAGE_VIEWER_CONVERSATION"):
+            return show_notice(Terminal(), NO_CONVERSATION)
         return run_viewer(environ, root)
     except Exception:
         log_error(root / "viewer.log", traceback.format_exc())
         return 1
+
+
+def show_notice(terminal, text):
+    """Show text, wrapped to the pane, until q or the pane going away."""
+    with terminal:
+        width = max(20, terminal.size()[0] - 1)
+        terminal.write("\x1b[H" + "\r\n".join(textwrap.wrap(text, width)))
+        while True:
+            data = terminal.read(STEP_SECONDS)
+            if data is None or b"q" in data:
+                return 0
 
 
 def log_error(path, text):
