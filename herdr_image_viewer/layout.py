@@ -52,8 +52,13 @@ def compute(cols, rows, cell_w, cell_h, count):
         result = below(cols, rows, thumb_cols, thumb_rows)
     else:
         result = right(cols, rows, thumb_cols, thumb_rows)
-    if len(result.grid.cells) < MIN_THUMBS or result.main.cols < MIN_MAIN_COLS or result.main.rows < MIN_MAIN_ROWS:
-        # Too small for thumbnails: the whole pane below the title shows the image.
+    too_small = (
+        len(result.grid.cells) < MIN_THUMBS
+        or result.main.cols < MIN_MAIN_COLS
+        or result.main.rows < MIN_MAIN_ROWS
+    )
+    if count == 0 or too_small:
+        # The whole pane below the title shows the image, or the placeholder.
         return Layout(main=Rect(col=0, row=1, cols=cols, rows=rows - 1), grid=None)
     return result
 

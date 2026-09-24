@@ -45,6 +45,12 @@ class LayoutTest(unittest.TestCase):
                 self.assertIsNone(result.grid)
                 self.assertEqual(result.main, Rect(col=0, row=1, cols=cols, rows=rows - 1))
 
+    def test_an_empty_history_lays_out_only_the_placeholder_area(self):
+        result = layout.compute(cols=60, rows=40, cell_w=CELL_W, cell_h=CELL_H, count=0)
+
+        self.assertIsNone(result.grid)
+        self.assertEqual(result.main, Rect(col=0, row=1, cols=60, rows=39))
+
 
 if __name__ == "__main__":
     unittest.main()
