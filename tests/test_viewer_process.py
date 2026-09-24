@@ -3,11 +3,11 @@
 import fcntl
 import json
 import os
-import pty
 import select
 import signal
 import socket
 import struct
+import subprocess
 import sys
 import tempfile
 import termios
@@ -110,28 +110,29 @@ class ViewerProcessTest(unittest.TestCase):
         self.directory.cleanup()
 
     def start(self):
-        pid, master = pty.fork()
-        if pid == 0:
-            os.chdir(REPOSITORY)
-            os.environ.update({
-                "PATH": str(self.bin),
-                "FAKE_LOG": os.devnull,
-                "HERDR_SOCKET_PATH": self.socket_path,
-                "HERDR_PANE_ID": "w1:p9",
-                "HERDR_IMAGE_VIEWER_STORE": str(self.store_root),
-                "HERDR_IMAGE_VIEWER_CONVERSATION": "claude:s1",
-            })
-            os.execv(sys.executable, [sys.executable, "-m", "herdr_image_viewer", "viewer"])
-        self.addCleanup(self.kill, pid)
-        fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 80, 0, 0))
-        return pid, master
+        """The viewer on the slave side of a 24x80 pty. subprocess instead of
+        pty.fork: forking a process that runs the fake server's threads is unsafe."""
+        master, slave = os.openpty()
+        fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 80, 0, 0))
+        env = {
+            "PATH": str(self.bin),
+            "FAKE_LOG": os.devnull,
+            "HERDR_SOCKET_PATH": self.socket_path,
+            "HERDR_PANE_ID": "w1:p9",
+            "HERDR_IMAGE_VIEWER_STORE": str(self.store_root),
+            "HERDR_IMAGE_VIEWER_CONVERSATION": "claude:s1",
+        }
+        process = subprocess.Popen(
+            [sys.executable, "-m", "herdr_image_viewer", "viewer"],
+            stdin=slave, stdout=slave, stderr=slave, cwd=REPOSITORY, env=env, start_new_session=True,
+        )
+        os.close(slave)
+        self.addCleanup(self.kill, process)
+        return process, master
 
-    def kill(self, pid):
-        try:
-            os.kill(pid, signal.SIGKILL)
-            os.waitpid(pid, 0)
-        except (ProcessLookupError, ChildProcessError):
-            pass
+    def kill(self, process):
+        process.kill()
+        process.wait()
 
     def drain(self, master, seconds):
         deadline = time.monotonic() + seconds
@@ -145,23 +146,22 @@ class ViewerProcessTest(unittest.TestCase):
                     return
                 self.output += chunk
 
-    def wait_exit(self, pid, master, timeout=10):
+    def wait_exit(self, process, master, timeout=10):
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             self.drain(master, 0.05)
-            finished, status = os.waitpid(pid, os.WNOHANG)
-            if finished:
-                return os.waitstatus_to_exitcode(status)
+            if process.poll() is not None:
+                return process.returncode
         self.fail("the viewer did not exit")
 
     def test_q_exits_closes_its_layers_and_restores_the_terminal(self):
-        pid, master = self.start()
+        process, master = self.start()
         self.assertTrue(self.herdr.wait_for(("frame", "main")), self.herdr.events)
         self.drain(master, 0.3)
 
         os.write(master, b"q")
 
-        self.assertEqual(self.wait_exit(pid, master), 0)
+        self.assertEqual(self.wait_exit(process, master), 0)
         self.assertTrue(self.herdr.wait_for(("closed", "main")), self.herdr.events)
         self.assertIn(b"\x1b[?1049h", self.output)  # alternate screen entered
         self.assertIn(b"\x1b[?1049l", self.output)  # and left
@@ -173,13 +173,13 @@ class ViewerProcessTest(unittest.TestCase):
             with self.subTest(signal=signum.name):
                 self.herdr.events.clear()
                 self.output = b""
-                pid, master = self.start()
+                process, master = self.start()
                 self.assertTrue(self.herdr.wait_for(("frame", "main")), self.herdr.events)
                 self.drain(master, 0.3)
 
-                os.kill(pid, signum)
+                process.send_signal(signum)
 
-                self.assertEqual(self.wait_exit(pid, master), 0)
+                self.assertEqual(self.wait_exit(process, master), 0)
                 self.assertTrue(self.herdr.wait_for(("closed", "main")), self.herdr.events)
                 self.assertIn(b"\x1b[?1049l", self.output)
                 os.close(master)
@@ -187,9 +187,9 @@ class ViewerProcessTest(unittest.TestCase):
     def test_an_unexpected_error_is_logged_under_the_state_directory_before_exiting(self):
         history = Store(self.store_root).history_path("claude:s1")
         history.chmod(0)  # reading the history raises PermissionError
-        pid, master = self.start()
+        process, master = self.start()
 
-        self.assertEqual(self.wait_exit(pid, master), 1)
+        self.assertEqual(self.wait_exit(process, master), 1)
 
         log = (self.store_root / "viewer.log").read_text()
         self.assertIn("PermissionError", log)
@@ -200,26 +200,22 @@ class ViewerProcessTest(unittest.TestCase):
     def test_a_viewer_exits_before_drawing_when_another_is_live(self):
         live = launcher.claim(self.store_root, "claude:s1", token="live", pane_id="w1:p8")
         self.addCleanup(live.release)
-        pid, master = self.start()
+        process, master = self.start()
 
-        self.assertEqual(self.wait_exit(pid, master), 0)
+        self.assertEqual(self.wait_exit(process, master), 0)
         self.assertEqual(self.herdr.events, [])
         self.assertNotIn(b"\x1b[?1049h", self.output)
 
     def test_the_pane_going_away_ends_the_viewer(self):
-        pid, master = self.start()
+        process, master = self.start()
         self.assertTrue(self.herdr.wait_for(("frame", "main")), self.herdr.events)
         self.drain(master, 0.3)
 
         os.close(master)  # EOF / EIO on the viewer's terminal
 
-        deadline = time.monotonic() + 10
-        while time.monotonic() < deadline:
-            finished, status = os.waitpid(pid, os.WNOHANG)
-            if finished:
-                break
-            time.sleep(0.05)
-        else:
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
             self.fail("the viewer did not exit")
         self.assertTrue(self.herdr.wait_for(("closed", "main")), self.herdr.events)
 
