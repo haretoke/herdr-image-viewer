@@ -315,7 +315,7 @@ checks at the end.
 - [x] arrow key escape sequences split across reads are parsed
 - [x] the viewer picks up a newly published image without input
 - [x] an entry whose archive is missing shows a placeholder
-- [ ] a conversation removed by GC turns into an empty view
+- [x] a conversation removed by GC turns into an empty view
 - [ ] an unexpected error is logged to a file under the state directory before the viewer exits
 
 ### launcher / cli

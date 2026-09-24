@@ -228,7 +228,12 @@ class Renderer:
             result = layout.Layout(main=layout.Rect(col=0, row=1, cols=pane.cols, rows=pane.rows - 1), grid=None)
         self.grid = result.grid
         current = selection.current()
-        if current is None:
+        if current is None:  # an empty history, or one GC removed
+            if self.sent.get("main") != "empty":
+                self.display.clear_main()
+                self.display.clear_thumbs()
+                self.display.show_title("no images yet")
+                self.sent = {"main": "empty", "thumbs": "empty", "title": "no images yet"}
             return
         try:
             size = self.images.size(current)

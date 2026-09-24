@@ -144,6 +144,9 @@ class FakeDisplay:
     def clear_main(self):
         self.main_frames.append((b"cleared -", None))
 
+    def clear_thumbs(self):
+        self.thumb_frames.append(None)
+
     def show_title(self, text):
         self.titles.append(text)
 
@@ -228,6 +231,17 @@ class ViewerTest(unittest.TestCase):
         self.viewer.on_input(b"l")
         self.viewer.step()
         self.assertEqual(self.shown()[-1], "12.png")
+
+    def test_a_conversation_removed_by_gc_turns_into_an_empty_view(self):
+        self.entries = []
+
+        self.viewer.step()
+        self.viewer.step()  # stays empty without re-sending
+
+        self.assertEqual(self.shown(), ["12.png", "-"])
+        self.assertEqual(self.display.thumb_frames[-1], None)
+        self.assertEqual(len(self.display.thumb_frames), 2)
+        self.assertEqual(self.display.titles[-1], "no images yet")
 
     def test_a_move_blocked_at_an_end_sends_nothing(self):
         self.viewer.on_input(b"l")  # already on the newest image
