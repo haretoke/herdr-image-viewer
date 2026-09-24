@@ -264,7 +264,7 @@ checks at the end.
 ### layout
 - [x] a tall pane (by pixel aspect) places the grid below the main image
 - [x] a wide pane places the grid in columns on the right
-- [ ] a pane below the minimum size shows no thumbnails
+- [x] a pane below the minimum size shows no thumbnails
 - [ ] an empty history lays out a placeholder
 - [ ] unknown or zero pty or cell sizes produce no layout (wait for the next size)
 - [ ] h/j/k/l move left/down/up/right and stop only at the ends of the history

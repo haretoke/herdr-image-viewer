@@ -31,6 +31,20 @@ class LayoutTest(unittest.TestCase):
         self.assertEqual(result.grid.cells[1], Rect(col=99, row=4, cols=10, rows=3))
         self.assertEqual(result.grid.cells[6], Rect(col=110, row=1, cols=10, rows=3))
 
+    def test_a_pane_below_the_minimum_size_shows_no_thumbnails(self):
+        cases = {
+            "grid holds fewer than 3 below": (20, 12),
+            "grid holds fewer than 3 on the right": (40, 6),
+            "main image would get fewer than 4 rows": (22, 11),  # tall: 11 - title - separator - 6
+            "main image would get fewer than 16 columns": (36, 10),  # wide: 36 - 21 - separator
+        }
+        for reason, (cols, rows) in cases.items():
+            with self.subTest(reason):
+                result = layout.compute(cols=cols, rows=rows, cell_w=CELL_W, cell_h=CELL_H, count=12)
+
+                self.assertIsNone(result.grid)
+                self.assertEqual(result.main, Rect(col=0, row=1, cols=cols, rows=rows - 1))
+
 
 if __name__ == "__main__":
     unittest.main()

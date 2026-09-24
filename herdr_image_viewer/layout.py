@@ -11,6 +11,9 @@ THUMB_TARGET_PX = (96, 60)
 GAP_COLS = 1
 GRID_ROWS_BELOW = 2
 GRID_COLUMNS_RIGHT = 2
+MIN_THUMBS = 3
+MIN_MAIN_COLS = 16
+MIN_MAIN_ROWS = 4
 
 
 @dataclass(frozen=True)
@@ -46,8 +49,13 @@ def thumb_size(cell_w, cell_h):
 def compute(cols, rows, cell_w, cell_h, count):
     thumb_cols, thumb_rows = thumb_size(cell_w, cell_h)
     if rows * cell_h >= cols * cell_w:
-        return below(cols, rows, thumb_cols, thumb_rows)
-    return right(cols, rows, thumb_cols, thumb_rows)
+        result = below(cols, rows, thumb_cols, thumb_rows)
+    else:
+        result = right(cols, rows, thumb_cols, thumb_rows)
+    if len(result.grid.cells) < MIN_THUMBS or result.main.cols < MIN_MAIN_COLS or result.main.rows < MIN_MAIN_ROWS:
+        # Too small for thumbnails: the whole pane below the title shows the image.
+        return Layout(main=Rect(col=0, row=1, cols=cols, rows=rows - 1), grid=None)
+    return result
 
 
 def below(cols, rows, thumb_cols, thumb_rows):
