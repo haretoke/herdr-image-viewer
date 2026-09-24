@@ -41,6 +41,21 @@ class EnsureViewerTest(unittest.TestCase):
         self.assertEqual(env["HERDR_IMAGE_VIEWER_CONVERSATION"], "claude:s1")
         self.assertRegex(env["HERDR_IMAGE_VIEWER_TOKEN"], r"^[0-9a-f]{32}$")
 
+    def test_an_open_that_timed_out_is_not_retried_while_its_reservation_is_live(self):
+        def timing_out(caller, env):
+            self.opener.requests.append((caller, env))
+            raise TimeoutError("herdr plugin pane open timed out")  # it may still open
+
+        with self.assertRaises(TimeoutError):
+            launcher.ensure_viewer(self.root, "claude:s1", "w1:p3", timing_out, clock=lambda: self.now)
+        self.now += 14
+        self.assertEqual(self.ensure(), "opening")
+        self.assertEqual(len(self.opener.requests), 1)
+
+        self.now += 2  # the reservation expired after 15 s
+        self.assertEqual(self.ensure(), "opened")
+        self.assertEqual(len(self.opener.requests), 2)
+
     def test_no_viewer_is_opened_while_one_is_live(self):
         viewer = launcher.claim(self.root, "claude:s1", token="live", pane_id="w1:v9")
         self.assertIsNotNone(viewer)
