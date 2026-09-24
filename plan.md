@@ -40,8 +40,10 @@ Fable; this revision applies the adopted findings and the owner's decisions.
 - Storage root: `HERDR_PLUGIN_STATE_DIR` when it belongs to this plugin
   (`HERDR_PLUGIN_ID` matches); otherwise the path Herdr uses,
   `${XDG_STATE_HOME:-$HOME/.local/state}/herdr/plugins/haretoke.image-viewer`.
-  Never inside the plugin root. Viewer liveness locks and open reservations
-  live in a `run/` directory outside the GC-managed history tree.
+  Never inside the plugin root. `publish` passes the root it resolved to the
+  viewer through the open request's env, so both always use the same store.
+  Viewer liveness locks and open reservations live in a `run/` directory
+  outside the GC-managed history tree.
 - Rendering uses two stream layers per viewer: one `pane.graphics.stream` for
   the main image and one for a composite of the visible thumbnails (unselected
   dimmed, selection highlighted, baked into pixels). Streams remove their layers
@@ -202,7 +204,13 @@ checks at the end.
       both frames were accepted (display not captured there). Closing a
       stream means closing the socket and any `makefile()` reader: with the
       reader left open the connection, and the layer, stayed.
-- [ ] the computed state directory equals `HERDR_PLUGIN_STATE_DIR` inside a plugin pane
+- [x] the computed state directory equals `HERDR_PLUGIN_STATE_DIR` inside a plugin pane
+      (2026-09-24): equal on the Mac (`XDG_STATE_HOME` set to the default
+      path) and in the container session (`XDG_STATE_HOME` unset). The hook
+      runs with Claude's environment and the viewer with the Herdr server's,
+      so they could still disagree if `XDG_STATE_HOME` differed; `publish`
+      therefore passes the store root it resolved to the viewer through the
+      open request's env, and the viewer uses that.
 - [ ] thumbnail RGBA can be obtained on the Mac (sips BMP) and in the container (magick RGBA)
 - [ ] `herdr plugin link` of the local clone works for development and survives a Herdr server restart
 
