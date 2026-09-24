@@ -332,7 +332,11 @@ checks at the end.
 - [x] `publish` of an unsafe file, an invalid key, or a full store exits 1 with a message and opens nothing; an open that fails or times out (below the reservation) exits 1
 - [x] `gc` runs the collector once
 - [x] the `open` action opens the viewer of the last conversation published from the focused pane
-- [ ] the manifest declares the viewer pane and the open action, and `herdr plugin link` of the clone lists both (Mac)
+- [x] the manifest declares the viewer pane and the open action, and `herdr plugin link` of the clone lists both (Mac)
+      (2026-09-24): `herdr plugin link` listed the `viewer` pane and the
+      `open` action; invoking `open` ran `python3 -m herdr_image_viewer open`
+      in the plugin root and its stderr ("no images were published from pane
+      ...", exit 1) showed up in `herdr plugin log list`.
 
 ### hook
 - [ ] the plugin hook publishes image files and ignores other files

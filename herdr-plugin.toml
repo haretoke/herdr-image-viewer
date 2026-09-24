@@ -1,0 +1,21 @@
+id = "haretoke.image-viewer"
+name = "Image viewer"
+version = "0.1.0"
+min_herdr_version = "0.9.1"
+description = "Per-conversation history of the images an agent reads, with thumbnails and hjkl navigation"
+platforms = ["linux", "macos"]
+
+# Opened by `publish` (the agent hook) right of the agent's pane, without focus.
+# Commands run in the plugin root, so `-m` finds the package there.
+[[panes]]
+id = "viewer"
+title = "Images"
+placement = "split"
+command = ["python3", "-m", "herdr_image_viewer", "viewer"]
+
+[[actions]]
+id = "open"
+title = "Open image viewer"
+description = "Reopen the image viewer for the conversation last shown from the focused pane"
+contexts = ["pane"]
+command = ["python3", "-m", "herdr_image_viewer", "open"]
