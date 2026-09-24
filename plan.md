@@ -395,7 +395,17 @@ checks at the end.
       opened and waited for a client. WSL2 host: no plugins installed, so the
       hook keeps the old path.)
 - [x] the shim keeps the hook's file name and settings entry, so registration stays idempotent and keeps other settings (the existing registrar tests)
-- [ ] real devices: Mac local, WSL2 thin client, publish into a hidden tab then show it, several conversations, reconnect, transfer volume while browsing
+- [x] real devices: Mac local and WSL2 thin client
+      (2026-09-24. Mac, linked clone: images read in a Claude session opened
+      the viewer right of the Claude pane without focus; titles and h/l
+      checked with `pane read`. WSL2 thin client to kaitori-poc-app-1 with
+      v0.1.0 installed by devcon-herdr: the owner confirmed the viewer works;
+      the store held the conversation's image and there was no hook.log or
+      viewer.log.)
+- [ ] real devices: publish into a hidden tab, then show it
+- [ ] real devices: several conversations at once, each with its own viewer and history
+- [ ] real devices: detach and reattach the client while a viewer is open
+- [ ] real devices: transfer volume while browsing thumbnails
 
 ## Open items
 
