@@ -238,6 +238,10 @@ checks at the end.
 - [x] symlinks, FIFOs, and directories are rejected; content is copied from the opened regular file
 - [x] files whose magic bytes are not a supported image are rejected
 - [x] files above the size or pixel caps are rejected
+- [ ] image dimensions are read from the headers of PNG, GIF, BMP, JPEG, WebP (VP8, VP8L, VP8X), TIFF, and HEIC without external tools
+- [ ] publish refuses an image above the pixel cap, or one whose size cannot be read, before it enters the history
+      (until now the pixel cap was a checked function that no image went
+      through; only ImageMagick had resource limits)
 - [x] storage directories are 0700 and files 0600; foreign-owned or symlinked storage is refused
 - [x] control characters in file names never reach the title
 
