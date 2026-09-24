@@ -1,4 +1,7 @@
+import subprocess
+import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -37,6 +40,43 @@ class EnsureViewerTest(unittest.TestCase):
         self.assertEqual(env["HERDR_IMAGE_VIEWER_STORE"], str(self.root))
         self.assertEqual(env["HERDR_IMAGE_VIEWER_CONVERSATION"], "claude:s1")
         self.assertRegex(env["HERDR_IMAGE_VIEWER_TOKEN"], r"^[0-9a-f]{32}$")
+
+    def test_no_viewer_is_opened_while_one_is_live(self):
+        viewer = launcher.claim(self.root, "claude:s1", token="live", pane_id="w1:v9")
+        self.assertIsNotNone(viewer)
+        self.addCleanup(viewer.release)
+
+        self.assertEqual(self.ensure(), "running")
+        self.assertEqual(self.opener.requests, [])
+
+    def test_concurrent_publishes_and_a_manual_open_start_one_viewer(self):
+        opens = Path(self.directory.name) / "opens"
+        start = Path(self.directory.name) / "start"
+        worker = (
+            "import sys, time\n"
+            "from pathlib import Path\n"
+            "from herdr_image_viewer import launcher\n"
+            "root, opens, start = sys.argv[1:4]\n"
+            "def opener(caller, env):\n"
+            "    with open(opens, 'a') as log:\n"
+            "        log.write(caller + '\\n')\n"
+            "    return 'w1:v1'\n"
+            "while not Path(start).exists():\n"
+            "    time.sleep(0.001)\n"
+            "print(launcher.ensure_viewer(Path(root), 'claude:s1', 'w1:p3', opener))\n"
+        )
+        repository = Path(__file__).resolve().parents[1]
+        workers = [
+            subprocess.Popen([sys.executable, "-c", worker, str(self.root), str(opens), str(start)],
+                             cwd=repository, stdout=subprocess.PIPE, text=True)
+            for _ in range(12)
+        ]
+        time.sleep(0.5)
+        start.touch()
+        results = [process.communicate(timeout=30)[0].strip() for process in workers]
+
+        self.assertEqual(opens.read_text().splitlines(), ["w1:p3"])
+        self.assertEqual(sorted(results), ["opened"] + ["opening"] * 11)
 
 
 if __name__ == "__main__":

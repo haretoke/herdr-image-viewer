@@ -320,7 +320,7 @@ checks at the end.
 
 ### launcher / cli
 - [x] `publish` opens the viewer next to the caller pane when the conversation has none
-- [ ] concurrent publishes and a manual open leave at most one live viewer and no extra panes
+- [x] concurrent publishes and a manual open leave at most one live viewer and no extra panes
 - [ ] an open that timed out is not retried while its reservation is live
 - [ ] a viewer launched after its reservation expired exits before drawing when another is live
 - [ ] a registration left by a dead viewer is replaced
