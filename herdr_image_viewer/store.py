@@ -126,12 +126,12 @@ class Store:
                 self._remove_unless_locked(directory, self._expired)
         sizes = {directory: tree_size(directory) for directory in conversations.iterdir()}
         total = sum(sizes.values())
-        for _, directory in sorted(
-            (updated_at, directory)
-            for directory in sizes
-            for updated_at in [self._collectable_since(directory)]
-            if updated_at is not None
-        ):
+        candidates = []
+        for directory in sizes:
+            updated_at = self._collectable_since(directory)
+            if updated_at is not None:
+                candidates.append((updated_at, directory))
+        for _, directory in sorted(candidates):
             if total <= self.max_total_bytes:
                 break
             if self._remove_unless_locked(directory, lambda d: self._collectable_since(d) is not None):
