@@ -109,9 +109,10 @@ class ViewerProcessTest(unittest.TestCase):
     def tearDown(self):
         self.directory.cleanup()
 
-    def start(self):
+    def start(self, **env_changes):
         """The viewer on the slave side of a 24x80 pty. subprocess instead of
-        pty.fork: forking a process that runs the fake server's threads is unsafe."""
+        pty.fork: forking a process that runs the fake server's threads is unsafe.
+        env_changes set variables, or remove them when None."""
         master, slave = os.openpty()
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 80, 0, 0))
         env = {
@@ -122,6 +123,8 @@ class ViewerProcessTest(unittest.TestCase):
             "HERDR_IMAGE_VIEWER_STORE": str(self.store_root),
             "HERDR_IMAGE_VIEWER_CONVERSATION": "claude:s1",
         }
+        env.update(env_changes)
+        env = {name: value for name, value in env.items() if value is not None}
         process = subprocess.Popen(
             [sys.executable, "-m", "herdr_image_viewer", "viewer"],
             stdin=slave, stdout=slave, stderr=slave, cwd=REPOSITORY, env=env, start_new_session=True,
