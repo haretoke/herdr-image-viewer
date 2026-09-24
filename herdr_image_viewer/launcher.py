@@ -100,11 +100,7 @@ class Claim:
         self.token = token
 
     def release(self):
-        try:
-            if json.loads(self.registration.read_bytes()).get("token") == self.token:
-                self.registration.unlink()
-        except (OSError, ValueError):
-            pass
+        remove_if_token(self.registration, self.token)
         if self.descriptor is not None:
             os.close(self.descriptor)
             self.descriptor = None
