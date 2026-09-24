@@ -26,6 +26,17 @@ class SelectionTest(unittest.TestCase):
 
         self.assertEqual(selection.current(), entry(3))
 
+    def test_after_moving_to_an_older_image_a_new_image_keeps_the_selection_and_marks_new(self):
+        selection = Selection()
+        selection.update([entry(1), entry(2), entry(3)])
+        selection.move("left", grid=None)
+
+        selection.update([entry(1), entry(2), entry(3), entry(4)])
+
+        self.assertEqual(selection.current(), entry(2))
+        self.assertTrue(selection.has_new)
+        self.assertEqual(selection.title(size=(10, 10)), "2/4 2.png 10x10 [new]")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -300,7 +300,7 @@ checks at the end.
 ### viewer (fake clock, PTY)
 - [x] on start the viewer shows the newest entry and a "n/N name WxH" title
 - [x] with follow_latest a newly published image becomes the selection
-- [ ] after moving to an older image a new image keeps the selection and marks "new"
+- [x] after moving to an older image a new image keeps the selection and marks "new"
 - [ ] moving back to the newest image turns follow_latest on and clears "new"
 - [ ] the selection follows its content hash when entries move or the selected one is dropped
 - [ ] moving the selection re-sends the main image and the composite and starts no converter
