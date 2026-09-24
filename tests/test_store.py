@@ -1,10 +1,12 @@
 import hashlib
+import os
 import subprocess
 import sys
 import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from herdr_image_viewer.store import Store
 
@@ -140,6 +142,24 @@ class StoreTest(unittest.TestCase):
             self.store.archive_path("claude:s1", entry).read_bytes(), PNG + b"temporary screenshot"
         )
         self.assertEqual(self.store.history("claude:s1")[-1].source, str(source))
+
+    def test_a_crash_after_archiving_but_before_replacing_the_history_keeps_the_old_history(self):
+        self.store.publish("claude:s1", self.image("kept.png", PNG + b"kept"))
+        real_replace = os.replace
+
+        def crash_on_history(source, destination):
+            if str(destination).endswith("history.json"):
+                raise OSError("simulated crash")
+            return real_replace(source, destination)
+
+        with mock.patch("herdr_image_viewer.store.os.replace", side_effect=crash_on_history):
+            with self.assertRaises(OSError):
+                self.store.publish("claude:s1", self.image("lost.png", PNG + b"lost"))
+
+        self.assertEqual([entry.name for entry in self.store.history("claude:s1")], ["kept.png"])
+        conversation = self.store.conversation_dir("claude:s1")
+        leftovers = [path.name for path in conversation.rglob(".*") if path.is_file()]
+        self.assertEqual(leftovers, [])
 
 
 if __name__ == "__main__":

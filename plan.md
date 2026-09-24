@@ -248,7 +248,7 @@ checks at the end.
 - [x] histories of different conversation keys are independent
 - [x] concurrent publishes to one conversation do not lose entries
 - [x] an entry stays viewable from the archive after its source is deleted
-- [ ] a crash after archiving but before replacing the history leaves the old history intact
+- [x] a crash after archiving but before replacing the history leaves the old history intact
 - [ ] a corrupt history is moved aside and its archives are kept
 - [ ] a history with an unknown schema version is neither modified nor collected
 - [ ] GC removes conversations whose `updated_at` is older than 14 days (boundary ±1 s)
