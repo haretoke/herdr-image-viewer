@@ -310,6 +310,34 @@ class ViewerTest(unittest.TestCase):
         self.assertIn("cannot show images", self.display.titles[-1])
         self.assertIn("layer limit", self.display.titles[-1])
 
+    def test_while_a_draw_is_retried_the_title_says_what_the_viewer_waits_for(self):
+        self.display.failing = True
+        self.viewer.on_input(b"h")
+
+        self.viewer.step()
+
+        self.assertIn("waiting for Herdr", self.display.titles[-1])
+        self.assertIn("layer limit", self.display.titles[-1])
+
+    def test_after_giving_up_a_key_or_a_resize_starts_a_new_round_of_retries(self):
+        for label, nudge in {"key": lambda: self.viewer.on_input(b"x"), "resize": self.viewer.on_resize}.items():
+            with self.subTest(label):
+                self.display.failing = True
+                self.viewer.on_input(b"h")
+                for second in range(int(self.now) + 1, int(self.now) + 200):
+                    self.now = float(second)
+                    self.viewer.step()
+                self.assertIn("cannot show images", self.display.titles[-1])
+                self.display.failing = False  # e.g. a client attached
+                frames = len(self.display.main_frames)
+
+                nudge()
+                self.now += 1.0  # past the resize's re-fit delay
+                self.viewer.step()
+
+                self.assertEqual(len(self.display.main_frames), frames + 1)
+                self.assertNotIn("cannot show images", self.display.titles[-1])
+
     def test_a_resource_error_drops_the_thumbnails_first_then_reports_the_main_image(self):
         limit = HerdrError("pane graphics layer limit reached", code="layer_limit")
         self.display.thumb_error = limit

@@ -319,6 +319,13 @@ checks at the end.
 - [x] SIGWINCH bursts are debounced (fake clock) and identical frames are not re-sent
 - [x] a viewer started with a stale pty size re-fits after the next SIGWINCH
 - [x] a lost stream is restored without input, with backoff, and gives up with a message
+- [x] while a draw is retried, the title says what the viewer is waiting for
+- [x] after giving up, a key press or a resize starts a new round of retries
+      (2026-09-24, end-to-end smoke in a session without a client: the
+      viewer opened, but `pane.graphics.info` answered "host cell size is
+      unavailable", so the pane stayed blank through the backoff and the
+      viewer would have given up for good; a client attaching later resizes
+      the pane)
 - [x] a resource error drops the thumbnails first and then reports the main image as unavailable
 - [x] q, SIGTERM, SIGHUP, and EOF exit and restore the TTY
 - [x] arrow key escape sequences split across reads are parsed

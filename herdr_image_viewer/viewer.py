@@ -136,8 +136,11 @@ class Viewer:
         follower did); identical frames are not re-sent."""
         now = self.clock()
         self.refits = [now + delay for delay in REFIT_DELAYS]
+        self.restart()  # e.g. a client attached to a session that had none
 
     def on_input(self, data):
+        if data:
+            self.restart()
         for key in self.keys.feed(data):
             if key == "quit":
                 self.quit = True
@@ -170,21 +173,32 @@ class Viewer:
             try:
                 self.renderer.draw(self.selection, self.read_pane())
             except herdr_api.HerdrError as error:
-                if error.resource:
-                    self.renderer.display.show_title(f"image unavailable: {safety.display_text(str(error))}")
-                self.retry_later(str(error))
+                unavailable = f"image unavailable: {safety.display_text(str(error))}" if error.resource else None
+                self.retry_later(str(error), title=unavailable)
                 return
             self.dirty = False
             self.failures = 0
 
-    def retry_later(self, reason):
+    def retry_later(self, reason, title=None):
         """Redraw after the next backoff delay, or give up with a message."""
+        reason = safety.display_text(reason)
         if self.failures >= len(RETRY_DELAYS):
             self.gave_up = True
-            self.renderer.display.show_title(f"cannot show images: {safety.display_text(reason)}")
+            self.renderer.display.show_title(f"cannot show images: {reason} (press a key to retry)")
             return
+        self.renderer.display.show_title(title or f"waiting for Herdr: {reason}")
         self.retry_at = self.clock() + RETRY_DELAYS[self.failures]
         self.failures += 1
+
+    def restart(self):
+        """After giving up, try again from the first backoff step."""
+        if not self.gave_up:
+            return
+        self.gave_up = False
+        self.failures = 0
+        self.retry_at = None
+        self.renderer.invalidate()
+        self.dirty = True
 
 
 def herdr_placement(col, row, cols, rows):
