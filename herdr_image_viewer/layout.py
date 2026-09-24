@@ -8,6 +8,8 @@ import math
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
+from . import limits
+
 THUMB_TARGET_PX = (96, 60)
 GAP_COLS = 1
 GRID_ROWS_BELOW = 2
@@ -104,15 +106,20 @@ def thumb_size(cell_w, cell_h):
     )
 
 
-def compute(cols, rows, cell_w, cell_h, count):
-    """The layout for a pane, or None while its size or cell size is unknown."""
+def compute(cols, rows, cell_w, cell_h, count, max_canvas_px=limits.COMPOSITE_MAX_PIXELS):
+    """The layout for a pane, or None while its size or cell size is unknown.
+
+    The grid never spans more than max_canvas_px pixels, which bounds the
+    composite sent on every selection move.
+    """
     if not all(isinstance(value, int) and value > 0 for value in (cols, rows, cell_w, cell_h)):
         return None
     thumb_cols, thumb_rows = thumb_size(cell_w, cell_h)
+    budget = (cell_w, cell_h, max_canvas_px)
     if rows * cell_h >= cols * cell_w:
-        result = below(cols, rows, thumb_cols, thumb_rows)
+        result = below(cols, rows, thumb_cols, thumb_rows, budget)
     else:
-        result = right(cols, rows, thumb_cols, thumb_rows)
+        result = right(cols, rows, thumb_cols, thumb_rows, budget)
     too_small = (
         len(result.grid.cells) < MIN_THUMBS
         or result.main.cols < MIN_MAIN_COLS
@@ -124,9 +131,18 @@ def compute(cols, rows, cell_w, cell_h, count):
     return result
 
 
-def below(cols, rows, thumb_cols, thumb_rows):
+def span(count, size):
+    """Cells covered by count thumbnails of size cells with gaps between them."""
+    return count * size + max(0, count - 1) * GAP_COLS
+
+
+def below(cols, rows, thumb_cols, thumb_rows, budget):
     """Row-major grid under the main image."""
+    cell_w, cell_h, max_canvas_px = budget
     columns = (cols + GAP_COLS) // (thumb_cols + GAP_COLS)
+    height_px = GRID_ROWS_BELOW * thumb_rows * cell_h
+    while columns > 0 and span(columns, thumb_cols) * cell_w * height_px > max_canvas_px:
+        columns -= 1
     grid_top = rows - GRID_ROWS_BELOW * thumb_rows
     cells = tuple(
         Rect(col=c * (thumb_cols + GAP_COLS), row=grid_top + r * thumb_rows, cols=thumb_cols, rows=thumb_rows)
@@ -137,10 +153,13 @@ def below(cols, rows, thumb_cols, thumb_rows):
     return Layout(main=main, grid=Grid("below", columns, GRID_ROWS_BELOW, cells))
 
 
-def right(cols, rows, thumb_cols, thumb_rows):
+def right(cols, rows, thumb_cols, thumb_rows, budget):
     """Column-major grid right of the main image, following the history order."""
+    cell_w, cell_h, max_canvas_px = budget
     per_column = (rows - 1) // thumb_rows
-    width = GRID_COLUMNS_RIGHT * thumb_cols + (GRID_COLUMNS_RIGHT - 1) * GAP_COLS
+    width = span(GRID_COLUMNS_RIGHT, thumb_cols)
+    while per_column > 0 and width * cell_w * per_column * thumb_rows * cell_h > max_canvas_px:
+        per_column -= 1
     left = cols - width
     cells = tuple(
         Rect(col=left + c * (thumb_cols + GAP_COLS), row=1 + r * thumb_rows, cols=thumb_cols, rows=thumb_rows)

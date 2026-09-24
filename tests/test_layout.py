@@ -64,6 +64,18 @@ class LayoutTest(unittest.TestCase):
                 self.assertIsNone(layout.compute(cols=cols, rows=rows, cell_w=cell_w, cell_h=cell_h, count=3))
 
 
+class CanvasBudgetTest(unittest.TestCase):
+    def test_a_composite_over_the_canvas_budget_reduces_the_page_capacity(self):
+        # Below: 5 columns span (5*10 + 4) cells * 10 px = 540 px by 2*3 rows * 20 px = 120 px.
+        fits = layout.compute(cols=60, rows=40, cell_w=CELL_W, cell_h=CELL_H, count=12, max_canvas_px=540 * 120)
+        self.assertEqual(len(fits.grid.cells), 10)
+        over = layout.compute(cols=60, rows=40, cell_w=CELL_W, cell_h=CELL_H, count=12, max_canvas_px=540 * 120 - 1)
+        self.assertEqual((over.grid.columns, len(over.grid.cells)), (4, 8))
+        # Right: 2 columns span 21 cells * 10 px = 210 px by 6*3 rows * 20 px = 360 px.
+        over = layout.compute(cols=120, rows=20, cell_w=CELL_W, cell_h=CELL_H, count=12, max_canvas_px=210 * 360 - 1)
+        self.assertEqual((over.grid.rows, len(over.grid.cells)), (5, 10))
+
+
 class FitTest(unittest.TestCase):
     def test_the_main_image_is_fitted_inside_its_area_centered_and_never_upscaled(self):
         area = Rect(col=0, row=1, cols=60, rows=32)  # 600x640 px

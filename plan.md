@@ -85,7 +85,7 @@ Fable; this revision applies the adopted findings and the owner's decisions.
 | external conversion timeout | 20 s |
 | stream frame | 16 MiB (Herdr limit) |
 | `set` data | 512 KiB (Herdr limit, not used by the viewer) |
-| composite canvas budget | 65,536 pixels, reduced page capacity if exceeded |
+| composite canvas budget | 196,608 pixels (about 590 KB of RGB per selection move; the composite is streamed, so the 512 KiB `set` limit no longer applies), reduced page capacity if exceeded |
 | thumbnail cache | 32 MiB of RGBA |
 | open reservation | 15 s |
 | stream reconnect | backoff 1 s → 30 s, then stop and report |
@@ -278,7 +278,7 @@ checks at the end.
 - [x] thumbnails land in their cells with the highlight border on the selection (pixel assertions)
 - [x] unselected thumbnails are dimmed once, not again on every move
 - [x] semi-transparent thumbnails are flattened onto the background before dimming
-- [ ] a composite over the canvas budget reduces the page capacity
+- [x] a composite over the canvas budget reduces the page capacity
 
 ### imaging
 - [ ] PNG dimensions are read from the header; truncated PNGs are rejected
