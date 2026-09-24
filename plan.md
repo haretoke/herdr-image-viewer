@@ -383,10 +383,17 @@ checks at the end.
       (Herdr 0.9.1 clones into a temp directory, moves the previous checkout
       aside, and moves it back when the install fails; devcon-herdr never
       uninstalls first and carries on with the other plugins.)
-- [ ] the shared hook shim calls the plugin where it is installed and falls back to the old preview path where it is not (Mac, WSL2 host, container)
+- [x] the shared hook shim calls the plugin where it is installed and falls back to the old preview path where it is not (Mac, WSL2 host, container)
       (offline: devcon-herdr's hook tests cover delegation, the fallback,
-      and no plugin lookup for non-image reads; the three environments are
-      checked once the hook is switched)
+      and no plugin lookup for non-image reads. 2026-09-24, after the owner's
+      go-ahead the hook was switched on the Mac and in the shared WSL2
+      `~/.claude`, settings.json unchanged. Mac, linked clone: two images read
+      in a Claude session opened one viewer right of the Claude pane without
+      focus, titled "1/1 viewer-check-1.png 640x360" then "2/2 ...", and h/l
+      moved between them. Container: the shared hook, run in a pane of a
+      throwaway session, handed the read to the installed plugin, whose viewer
+      opened and waited for a client. WSL2 host: no plugins installed, so the
+      hook keeps the old path.)
 - [x] the shim keeps the hook's file name and settings entry, so registration stays idempotent and keeps other settings (the existing registrar tests)
 - [ ] real devices: Mac local, WSL2 thin client, publish into a hidden tab then show it, several conversations, reconnect, transfer volume while browsing
 
