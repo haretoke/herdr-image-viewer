@@ -1,1 +1,14 @@
 .claude/.cache/
+__pycache__/
+
+# Tests generate their image fixtures at run time; images never belong in the
+# repository (screen captures from manual checks included).
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.bmp
+*.tif
+*.tiff
+*.heic
