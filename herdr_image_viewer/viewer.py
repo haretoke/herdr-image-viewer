@@ -79,7 +79,36 @@ class Selection:
         )
 
 
-KEYS = {b"h": "left", b"j": "down", b"k": "up", b"l": "right"}
+KEYS = {b"h": "left", b"j": "down", b"k": "up", b"l": "right", b"q": "quit", b"Q": "quit"}
+ARROWS = {b"A": "up", b"B": "down", b"C": "right", b"D": "left"}
+
+
+class KeyParser:
+    """Keys from terminal input; escape sequences may arrive split across reads."""
+
+    def __init__(self):
+        self.pending = b""
+
+    def feed(self, data):
+        keys = []
+        buffer = self.pending + data
+        self.pending = b""
+        position = 0
+        while position < len(buffer):
+            byte = buffer[position:position + 1]
+            if byte != b"\x1b":
+                if byte in KEYS:
+                    keys.append(KEYS[byte])
+                position += 1
+                continue
+            sequence = buffer[position:position + 3]
+            if len(sequence) < 3:  # ESC [ X or ESC O X not complete yet
+                self.pending = sequence
+                break
+            if sequence[1:2] in (b"[", b"O") and sequence[2:3] in ARROWS:
+                keys.append(ARROWS[sequence[2:3]])
+            position += 3
+        return keys
 
 
 class Viewer:
@@ -100,6 +129,8 @@ class Viewer:
         self.retry_at = None
         self.failures = 0
         self.gave_up = False
+        self.keys = KeyParser()
+        self.quit = False
 
     def on_resize(self):
         """Re-fit once the layout settles and once more late (as the old
@@ -108,12 +139,13 @@ class Viewer:
         self.refits = [now + delay for delay in REFIT_DELAYS]
 
     def on_input(self, data):
-        for byte in data:
-            direction = KEYS.get(bytes([byte]))
-            if direction is not None:
-                before = self.selection.selected
-                self.selection.move(direction, self.renderer.grid)
-                self.dirty = self.dirty or self.selection.selected != before
+        for key in self.keys.feed(data):
+            if key == "quit":
+                self.quit = True
+                continue
+            before = self.selection.selected
+            self.selection.move(key, self.renderer.grid)
+            self.dirty = self.dirty or self.selection.selected != before
 
     def step(self):
         now = self.clock()

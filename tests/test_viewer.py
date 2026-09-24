@@ -3,7 +3,7 @@ import unittest
 from herdr_image_viewer import composite, limits
 from herdr_image_viewer.herdr_api import HerdrError
 from herdr_image_viewer.store import Entry
-from herdr_image_viewer.viewer import Pane, Renderer, Selection, Viewer
+from herdr_image_viewer.viewer import KeyParser, Pane, Renderer, Selection, Viewer
 
 
 def entry(number, name=None):
@@ -67,6 +67,17 @@ class SelectionTest(unittest.TestCase):
         self.assertEqual(selection.current(), entry(1))
         selection.update([entry(3), entry(2), entry(4)])  # 1 fell out of the history
         self.assertEqual(selection.current(), entry(3))
+
+
+class KeyParserTest(unittest.TestCase):
+    def test_arrow_key_escape_sequences_split_across_reads_are_parsed(self):
+        parser = KeyParser()
+
+        self.assertEqual(parser.feed(b"\x1b"), [])
+        self.assertEqual(parser.feed(b"["), [])
+        self.assertEqual(parser.feed(b"D"), ["left"])
+        self.assertEqual(parser.feed(b"hj\x1b[C\x1bOAlkq"), ["left", "down", "right", "up", "right", "up", "quit"])
+        self.assertEqual(parser.feed(b"\x1b[Zx"), [])  # unknown sequences and keys are ignored
 
 
 class FakeImages:
