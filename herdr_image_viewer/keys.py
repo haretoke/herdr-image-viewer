@@ -3,6 +3,8 @@
 import hashlib
 
 MAX_ID_LENGTH = 256
+MAX_KEY_LENGTH = 1024
+NAMESPACES = ("claude", "codex", "pane")
 
 
 def conversation_key(payload, socket_path, caller_pane):
@@ -19,6 +21,18 @@ def usable_id(value):
         isinstance(value, str)
         and 0 < len(value) <= MAX_ID_LENGTH
         and value.isprintable()
+    )
+
+
+def valid_key(key):
+    """A key conversation_key could have produced (pane keys carry a socket path)."""
+    namespace, separator, rest = key.partition(":")
+    return (
+        separator == ":"
+        and namespace in NAMESPACES
+        and len(rest) > 0
+        and len(key) <= MAX_KEY_LENGTH
+        and key.isprintable()
     )
 
 

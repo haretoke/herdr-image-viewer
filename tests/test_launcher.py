@@ -6,7 +6,7 @@ import time
 import unittest
 from pathlib import Path
 
-from herdr_image_viewer import launcher
+from herdr_image_viewer import launcher, limits
 
 
 class FakeOpener:
@@ -139,6 +139,41 @@ class EnsureViewerTest(unittest.TestCase):
         self.assertEqual(opens.read_text().splitlines(), ["w1:p3"])
         self.assertEqual(sorted(results), ["opened"] + ["opening"] * 11)
 
+
+
+class HerdrOpenerTest(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.bin = Path(self.directory.name)
+
+    def tearDown(self):
+        self.directory.cleanup()
+
+    def opener_running(self, script, timeout=5):
+        """An opener whose herdr runs script, each in a directory of its own."""
+        directory = Path(tempfile.mkdtemp(dir=self.bin))
+        tool = directory / "herdr"
+        tool.write_text("#!/bin/sh\n" + script)
+        tool.chmod(0o755)
+        return launcher.herdr_opener({"PATH": str(directory)}, timeout=timeout)
+
+    def test_an_open_that_times_out_or_answers_nonsense_is_reported_as_failed(self):
+        cases = {
+            "no answer in time": (self.opener_running("exec sleep 30\n", timeout=0.3), "did not answer"),
+            "not json": (self.opener_running("echo not json\n"), "unexpected answer"),
+            "no pane id": (self.opener_running("echo '{\"result\": {}}'\n"), "unexpected answer"),
+            "no herdr": (launcher.herdr_opener({"PATH": str(self.bin / "empty")}), "herdr is not"),
+        }
+        for label, (opener, reason) in cases.items():
+            with self.subTest(label):
+                started = time.monotonic()
+                with self.assertRaises(launcher.OpenFailed) as raised:
+                    opener("w1:p3", {"HERDR_IMAGE_VIEWER_TOKEN": "t"})
+                self.assertIn(reason, str(raised.exception))
+                self.assertLess(time.monotonic() - started, 5)
+
+    def test_an_open_gives_up_before_its_reservation_expires(self):
+        self.assertLess(limits.OPEN_TIMEOUT_SECONDS, limits.OPEN_RESERVATION_SECONDS)
 
 if __name__ == "__main__":
     unittest.main()

@@ -3,10 +3,11 @@ conversation's history and makes sure a viewer shows that conversation."""
 
 import argparse
 import os
+import sys
 from pathlib import Path
 
-from . import launcher, state
-from .store import Store
+from . import keys, launcher, safety, state
+from .store import CapacityError, NewerSchema, Store
 
 
 def main(argv, environ=None):
@@ -24,7 +25,21 @@ def main(argv, environ=None):
         from . import app
 
         return app.run_from_environment(environ)
+    if not keys.valid_key(args.conversation):
+        return fail(f"invalid conversation key {args.conversation!r}")
     root = state.store_root(environ)
-    Store(root).publish(args.conversation, Path(args.image))
-    print(launcher.ensure_viewer(root, args.conversation, args.caller_pane, launcher.herdr_opener(environ)))
+    try:
+        Store(root).publish(args.conversation, Path(args.image))
+    except (safety.UnsafeInput, CapacityError, NewerSchema, OSError) as error:
+        return fail(error)
+    try:
+        status = launcher.ensure_viewer(root, args.conversation, args.caller_pane, launcher.herdr_opener(environ))
+    except launcher.OpenFailed as error:
+        return fail(f"could not open the viewer: {error}")
+    print(status)
     return 0
+
+
+def fail(message):
+    print(f"herdr-image-viewer: {message}", file=sys.stderr)
+    return 1

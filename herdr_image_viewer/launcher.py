@@ -64,11 +64,21 @@ def ensure_viewer(root, key, caller_pane, opener, clock=time.time):
     return "opened"
 
 
-def herdr_opener(environ):
-    """An opener that asks Herdr for the plugin's viewer pane right of the caller."""
+class OpenFailed(Exception):
+    """Herdr did not open the viewer pane."""
+
+
+def herdr_opener(environ, timeout=limits.OPEN_TIMEOUT_SECONDS):
+    """An opener that asks Herdr for the plugin's viewer pane right of the caller.
+
+    Every failure is an OpenFailed; the reservation stays, since a timed-out
+    request may still open the pane.
+    """
     herdr = environ.get("HERDR_BIN_PATH") or shutil.which("herdr", path=environ.get("PATH"))
 
     def open_viewer(caller_pane, env):
+        if not herdr:
+            raise OpenFailed("herdr is not on PATH and HERDR_BIN_PATH is not set")
         argv = [
             herdr, "plugin", "pane", "open",
             "--plugin", state.PLUGIN_ID,
@@ -80,8 +90,18 @@ def herdr_opener(environ):
         ]
         for name, value in env.items():
             argv += ["--env", f"{name}={value}"]
-        completed = subprocess.run(argv, capture_output=True, text=True, check=True)
-        return json.loads(completed.stdout)["result"]["plugin_pane"]["pane"]["pane_id"]
+        try:
+            completed = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+        except subprocess.TimeoutExpired as error:
+            raise OpenFailed(f"herdr did not answer within {timeout} s") from error
+        except OSError as error:
+            raise OpenFailed(f"cannot run {herdr}: {error.strerror}") from error
+        if completed.returncode != 0:
+            raise OpenFailed(completed.stderr.strip() or f"herdr exited with {completed.returncode}")
+        try:
+            return json.loads(completed.stdout)["result"]["plugin_pane"]["pane"]["pane_id"]
+        except (ValueError, KeyError, TypeError) as error:
+            raise OpenFailed(f"unexpected answer from herdr: {completed.stdout.strip()[:200]!r}") from error
 
     return open_viewer
 

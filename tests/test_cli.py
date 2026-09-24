@@ -93,6 +93,49 @@ class CliTest(unittest.TestCase):
         self.assertEqual(envs["HERDR_IMAGE_VIEWER_CONVERSATION"], "claude:s1")
         self.assertRegex(envs["HERDR_IMAGE_VIEWER_TOKEN"], r"^[0-9a-f]{32}$")
 
+    def fill_store_with_a_protected_conversation(self):
+        """Over 500 MiB that GC must keep: a newer-schema history (sparse file)."""
+        protected = self.store_root / "conversations" / ("0" * 32)
+        (protected / "archive").mkdir(parents=True)
+        (protected / "history.json").write_text(json.dumps({"schema_version": 99, "entries": []}))
+        with open(protected / "archive" / "big.png", "wb") as handle:
+            handle.truncate(501 * 1024 * 1024)
+
+    def test_publish_refuses_an_unsafe_file_an_invalid_key_and_a_full_store_without_opening(self):
+        notes = self.base / "notes.txt"
+        notes.write_text("not an image")
+        cases = {
+            "unsafe file": (str(notes), "claude:s1", None, "not a supported image"),
+            "missing file": (str(self.base / "gone.png"), "claude:s1", None, "cannot open"),
+            "unknown namespace": (str(self.image), "bogus:s1", None, "invalid conversation key"),
+            "no namespace": (str(self.image), "s1", None, "invalid conversation key"),
+            "control character": (str(self.image), "claude:s\n1", None, "invalid conversation key"),
+            "full store": (str(self.image), "claude:s1", self.fill_store_with_a_protected_conversation,
+                           "image store is full"),
+        }
+        for label, (image, key, prepare, reason) in cases.items():
+            with self.subTest(label):
+                if prepare:
+                    prepare()
+                result = self.run_cli("publish", image, "--conversation", key, "--caller-pane", "w1:p3")
+
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertRegex(result.stderr, r"^herdr-image-viewer: \S")
+                self.assertIn(reason, result.stderr)
+                self.assertNotIn("Traceback", result.stderr)
+                self.assertEqual(self.herdr_calls(), [])
+
+    def test_publish_exits_1_when_herdr_cannot_open_the_viewer_but_keeps_the_image(self):
+        self.write_tool(self.bin / "herdr", "#!/bin/sh\necho 'error: pane w1:p3 not found' >&2\nexit 3\n")
+
+        result = self.run_cli("publish", str(self.image), "--conversation", "claude:s1", "--caller-pane", "w1:p3")
+
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("could not open the viewer", result.stderr)
+        self.assertIn("pane w1:p3 not found", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+        self.assertEqual(len(Store(self.store_root).history("claude:s1")), 1)
+
     def test_publish_prefers_the_herdr_binary_named_by_herdr_bin_path(self):
         chosen = self.base / "herdr-of-this-server"
         self.write_tool(chosen, FAKE_HERDR)
