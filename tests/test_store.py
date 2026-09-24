@@ -212,6 +212,22 @@ class GcTest(StoreFixture):
         self.assertFalse(self.store.conversation_dir("claude:expired").exists())
         self.assertEqual([e.name for e in self.store.history("claude:kept")], ["b.png"])
 
+    def test_gc_never_collects_newer_schema_or_set_aside_corrupt_histories(self):
+        self.store.publish("claude:newer", self.image("n.png", PNG + b"n"))
+        self.store.history_path("claude:newer").write_bytes(b'{"schema_version": 2}')
+        self.store.publish("claude:corrupt", self.image("c.png", PNG + b"c"))
+        self.store.history_path("claude:corrupt").write_bytes(b"{broken")
+        self.store.publish("claude:set-aside", self.image("s1.png", PNG + b"s1"))
+        self.store.history_path("claude:set-aside").write_bytes(b"{broken")
+        self.store.publish("claude:set-aside", self.image("s2.png", PNG + b"s2"))
+        self.now += 15 * DAY
+
+        self.store.gc()
+
+        for key in ("claude:newer", "claude:corrupt", "claude:set-aside"):
+            with self.subTest(key=key):
+                self.assertTrue(self.store.conversation_dir(key).exists())
+
 
 if __name__ == "__main__":
     unittest.main()

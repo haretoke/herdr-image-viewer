@@ -121,6 +121,9 @@ class Store:
                     shutil.rmtree(directory)
 
     def _expired(self, directory):
+        # Newer-schema, corrupt, and set-aside histories are kept for inspection.
+        if any(directory.glob("history.corrupt-*.json")):
+            return False
         status, _, updated_at = read_history_file(directory / "history.json")
         return status == "ok" and self.clock() - updated_at > limits.GC_MAX_AGE_SECONDS
 
