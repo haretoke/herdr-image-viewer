@@ -28,17 +28,25 @@ def main(argv, environ=None):
 
         return app.run_from_environment(environ)
     if args.command == "gc":
-        Store(state.store_root(environ)).gc()
-        return 0
-    if not keys.valid_key(args.conversation):
-        return fail(f"invalid conversation key {args.conversation!r}")
+        return collect(environ)
+    return publish_image(environ, args.image, args.conversation, args.caller_pane)
+
+
+def collect(environ):
+    Store(state.store_root(environ)).gc()
+    return 0
+
+
+def publish_image(environ, image, key, caller_pane):
+    if not keys.valid_key(key):
+        return fail(f"invalid conversation key {key!r}")
     root = state.store_root(environ)
     try:
-        Store(root).publish(args.conversation, Path(args.image))
+        Store(root).publish(key, Path(image))
     except (safety.UnsafeInput, CapacityError, NewerSchema, OSError) as error:
         return fail(error)
     try:
-        status = launcher.ensure_viewer(root, args.conversation, args.caller_pane, launcher.herdr_opener(environ))
+        status = launcher.ensure_viewer(root, key, caller_pane, launcher.herdr_opener(environ))
     except launcher.OpenFailed as error:
         return fail(f"could not open the viewer: {error}")
     print(status)
