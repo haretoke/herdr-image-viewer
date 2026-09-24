@@ -88,5 +88,35 @@ class StreamOpenTest(unittest.TestCase):
             herdr_api.GraphicsStream(fake.path, "w1:p2", "main", 10).open()
 
 
+PLACEMENT = {"viewport_col": 1, "viewport_row": 2, "grid_cols": 3, "grid_rows": 1}
+
+
+class StreamFrameTest(unittest.TestCase):
+    def open_stream(self, handler):
+        fake = FakeHerdr(handler)
+        self.addCleanup(fake.close)
+        stream = herdr_api.GraphicsStream(fake.path, "w1:p2", "main", 10)
+        self.addCleanup(stream.close)
+        stream.open()
+        return fake, stream
+
+    def test_a_rejected_frame_is_reported_and_closes_the_stream(self):
+        def handler(fake, connection, reader, request):
+            fake.reply(connection, request)
+            fake.read_frame(reader)
+            fake.reply(connection, request, error={"code": "image_too_large", "message": "frame data is too large"})
+
+        fake, stream = self.open_stream(handler)
+
+        with self.assertRaisesRegex(herdr_api.HerdrError, "frame data is too large"):
+            stream.send(b"\x89PNG fake", 4, 2, PLACEMENT)
+
+        self.assertFalse(stream.is_open())
+        header, length = fake.frames[0]
+        self.assertEqual(header, {"format": "png", "image_width": 4, "image_height": 2,
+                                  "data_length": 9, "placement": PLACEMENT})
+        self.assertEqual(length, 9)
+
+
 if __name__ == "__main__":
     unittest.main()

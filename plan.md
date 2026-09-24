@@ -293,7 +293,7 @@ checks at the end.
 
 ### herdr_api
 - [x] opening a stream waits for the ok reply
-- [ ] a rejected frame is reported and closes the stream
+- [x] a rejected frame is reported and closes the stream
 - [ ] an EOF between frames is noticed without sending a frame
 - [ ] frames respect 16 MiB (limit -1/0/+1)
 

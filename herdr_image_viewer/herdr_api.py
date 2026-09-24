@@ -4,10 +4,12 @@ Ported from devcon-herdr's herdr-image-preview (socket_request, GraphicsStream).
 """
 
 import json
+import select
 import socket
 import uuid
 
 MAX_LINE_BYTES = 1024 * 1024
+REJECTION_WAIT_SECONDS = 0.2
 
 
 class HerdrError(Exception):
@@ -65,6 +67,32 @@ class GraphicsStream:
             client.close()
             raise HerdrError(f"Herdr refused the graphics stream: {refused}")
         self.client, self.reader = client, reader
+
+    def is_open(self):
+        return self.client is not None
+
+    def send(self, data, width, height, placement, image_format="png"):
+        """Send one frame; a rejection closes the stream and raises HerdrError."""
+        if self.client is None:
+            self.open()
+        header = {
+            "format": image_format,
+            "image_width": width,
+            "image_height": height,
+            "data_length": len(data),
+            "placement": placement,
+        }
+        try:
+            self.client.sendall(json.dumps(header, separators=(",", ":")).encode("utf-8") + b"\n" + data)
+            # Success has no reply; a rejection arrives as an error line, then EOF.
+            if not select.select([self.client], [], [], REJECTION_WAIT_SECONDS)[0]:
+                return
+            line = self.reader.readline(MAX_LINE_BYTES + 1)
+        except (OSError, TimeoutError) as error:
+            self.close()
+            raise HerdrError(f"the graphics stream failed: {error}") from error
+        self.close()
+        raise HerdrError(f"Herdr rejected the frame: {rejection(line) or 'unexpected reply'}")
 
     def close(self):
         # Close the makefile() reader too: while it is open the connection, and
