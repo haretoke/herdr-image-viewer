@@ -40,6 +40,18 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(entry.published_at, self.now)
         self.assertEqual(self.store.archive_path("claude:s1", entry).read_bytes(), PNG)
 
+    def test_publishing_the_same_content_again_moves_it_to_the_newest_position(self):
+        first = self.image("first.png", PNG + b"first")
+        self.store.publish("claude:s1", first)
+        self.store.publish("claude:s1", self.image("second.png", PNG + b"second"))
+        self.now += 60
+
+        self.store.publish("claude:s1", self.image("first-again.png", PNG + b"first"))
+
+        history = self.store.history("claude:s1")
+        self.assertEqual([entry.name for entry in history], ["second.png", "first-again.png"])
+        self.assertEqual(history[-1].published_at, self.now)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -242,7 +242,7 @@ checks at the end.
 
 ### store
 - [x] publishing an image records it as the newest entry with an archived copy
-- [ ] publishing the same content again moves it to the newest position
+- [x] publishing the same content again moves it to the newest position
 - [ ] publishing new content at an already published path adds a new entry
 - [ ] the history keeps at most 30 entries (29, 30, 31) and deletes archives no entry references
 - [ ] histories of different conversation keys are independent

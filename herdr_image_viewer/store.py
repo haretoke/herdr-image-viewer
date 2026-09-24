@@ -82,7 +82,9 @@ class Store:
         except BaseException:
             temporary.unlink(missing_ok=True)
             raise
-        self._write_history(key, self.history(key) + [entry])
+        # The same content published again moves to the newest position.
+        entries = [old for old in self.history(key) if old.sha256 != entry.sha256]
+        self._write_history(key, entries + [entry])
         return entry
 
     def _copy_in(self, source_path, archive_dir):
