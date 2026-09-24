@@ -3,6 +3,7 @@ import os
 import shutil
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -96,6 +97,16 @@ class ResizeTest(FakeToolsTest):
 
         self.assertEqual(imaging.png_size(resized), (12, 6))
         self.assertEqual([call[0] for call in self.calls()], ["sips"])
+
+    def test_resizing_gives_up_after_its_time_limit_and_reports_an_error(self):
+        self.install("magick")
+        started = time.monotonic()
+
+        with mock.patch.dict(os.environ, {"FAKE_SLEEP": "5"}):
+            with self.assertRaisesRegex(imaging.ImagingError, "timed out"):
+                imaging.resize(solid_png(40, 20), 10, 5, timeout=0.5)
+
+        self.assertLess(time.monotonic() - started, 3)
 
 
 if __name__ == "__main__":
