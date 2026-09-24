@@ -259,6 +259,7 @@ checks at the end.
 - [x] two GC runs at once and GC during a publish to another conversation stay consistent
 - [x] publish fails with a capacity error when GC cannot free enough space, keeping the history
 - [x] publish runs the age-based GC at most once an hour
+- [x] GC removes unreferenced archive files and temp files older than an hour, except in protected conversations
 
 ### layout
 - [ ] a tall pane (by pixel aspect) places the grid below the main image

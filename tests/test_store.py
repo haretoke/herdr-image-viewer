@@ -356,6 +356,30 @@ class GcTest(StoreFixture):
         self.assertFalse(self.store.conversation_dir("claude:a").exists())
         self.assertTrue(self.store.conversation_dir("claude:b").exists())
 
+    def test_gc_removes_orphans_and_stale_temp_files_except_in_protected_conversations(self):
+        kept = self.store.publish("claude:s1", self.image("kept.png", PNG + b"kept"))
+        archive = self.store.conversation_dir("claude:s1") / "archive"
+        orphan = archive / ("0" * 64 + ".png")  # left by a crash before the history was replaced
+        orphan.write_bytes(PNG)
+        stale = archive / ".incoming-stale"
+        stale.write_bytes(PNG)
+        fresh = archive / ".incoming-fresh"
+        fresh.write_bytes(PNG)
+        os.utime(stale, (self.now - 2 * 60 * 60, self.now - 2 * 60 * 60))
+        os.utime(fresh, (self.now - 10 * 60, self.now - 10 * 60))
+        self.store.publish("claude:protected", self.image("p.png", PNG + b"p"))
+        self.store.history_path("claude:protected").write_bytes(b'{"schema_version": 2}')
+        protected_orphan = self.store.conversation_dir("claude:protected") / "archive" / ("1" * 64 + ".png")
+        protected_orphan.write_bytes(PNG)
+
+        self.store.gc()
+
+        self.assertTrue(self.store.archive_path("claude:s1", kept).exists())
+        self.assertFalse(orphan.exists())
+        self.assertFalse(stale.exists())
+        self.assertTrue(fresh.exists())  # may belong to a publish in progress
+        self.assertTrue(protected_orphan.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -177,6 +177,8 @@ class Store:
         for directory in conversations.iterdir():
             if self._expired(directory):
                 self._remove_unless_locked(directory, self._expired)
+            else:
+                self._remove_orphans(directory)
         sizes = {directory: tree_size(directory) for directory in conversations.iterdir()}
         total = sum(sizes.values())
         candidates = []
@@ -189,6 +191,28 @@ class Store:
                 break
             if self._remove_unless_locked(directory, lambda d: self._collectable_since(d) is not None):
                 total -= sizes[directory]
+
+    def _remove_orphans(self, directory):
+        """Delete archive files no entry references and temp files older than
+        an hour. Protected conversations keep everything; a conversation being
+        written is skipped."""
+        with self._lock(directory.name, blocking=False) as held:
+            if not held or any(directory.glob("history.corrupt-*.json")):
+                return
+            status, entries, _ = read_history_file(directory / "history.json")
+            if status not in ("ok", "missing"):
+                return
+            referenced = {f"{entry.sha256}.{EXTENSIONS[entry.format]}" for entry in entries}
+            stale_before = self.clock() - limits.STALE_TEMP_SECONDS
+            for path in [*directory.glob(".*"), *(directory / "archive").glob("*")]:
+                try:
+                    if path.name.startswith("."):
+                        if path.stat().st_mtime < stale_before:
+                            path.unlink()
+                    elif path.parent.name == "archive" and path.name not in referenced:
+                        path.unlink()
+                except FileNotFoundError:
+                    continue
 
     def _remove_unless_locked(self, directory, still_wanted):
         with self._lock(directory.name, blocking=False) as held:
