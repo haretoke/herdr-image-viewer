@@ -65,6 +65,25 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(self.store.archive_path("claude:s1", history[0]).read_bytes(), PNG + b"v1")
         self.assertEqual(self.store.archive_path("claude:s1", history[1]).read_bytes(), PNG + b"v2")
 
+    def test_the_history_keeps_at_most_30_entries_and_deletes_unreferenced_archives(self):
+        for number in range(1, 30):
+            self.store.publish("claude:s1", self.image(f"{number}.png", PNG + str(number).encode()))
+        self.assertEqual(len(self.store.history("claude:s1")), 29)
+        self.store.publish("claude:s1", self.image("30.png", PNG + b"30"))
+        history = self.store.history("claude:s1")
+        self.assertEqual(len(history), 30)
+        oldest = history[0]
+
+        self.store.publish("claude:s1", self.image("31.png", PNG + b"31"))
+
+        history = self.store.history("claude:s1")
+        self.assertEqual(len(history), 30)
+        self.assertEqual(history[0].name, "2.png")
+        self.assertEqual(history[-1].name, "31.png")
+        self.assertFalse(self.store.archive_path("claude:s1", oldest).exists())
+        for entry in history:
+            self.assertTrue(self.store.archive_path("claude:s1", entry).exists(), entry.name)
+
 
 if __name__ == "__main__":
     unittest.main()

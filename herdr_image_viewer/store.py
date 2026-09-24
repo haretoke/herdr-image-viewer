@@ -14,7 +14,7 @@ import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from . import keys, safety
+from . import keys, limits, safety
 
 SCHEMA_VERSION = 1
 EXTENSIONS = {
@@ -83,8 +83,12 @@ class Store:
             temporary.unlink(missing_ok=True)
             raise
         # The same content published again moves to the newest position.
-        entries = [old for old in self.history(key) if old.sha256 != entry.sha256]
-        self._write_history(key, entries + [entry])
+        entries = [old for old in self.history(key) if old.sha256 != entry.sha256] + [entry]
+        kept, dropped = entries[-limits.MAX_HISTORY:], entries[:-limits.MAX_HISTORY]
+        self._write_history(key, kept)
+        # Only after the history no longer references them.
+        for old in dropped:
+            self.archive_path(key, old).unlink(missing_ok=True)
         return entry
 
     def _copy_in(self, source_path, archive_dir):
