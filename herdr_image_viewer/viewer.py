@@ -135,6 +135,8 @@ class Viewer:
             try:
                 self.renderer.draw(self.selection, self.read_pane())
             except herdr_api.HerdrError as error:
+                if error.resource:
+                    self.renderer.display.show_title(f"image unavailable: {safety.display_text(str(error))}")
                 self.retry_later(str(error))
                 return
             self.dirty = False
@@ -176,6 +178,7 @@ class Renderer:
         self.thumb_cache_size = 0
         self.thumb_cache_bytes = thumb_cache_bytes
         self.sent = {}  # what each frame last showed, to skip identical re-sends
+        self.thumbs_enabled = True
 
     def invalidate(self):
         """Forget what was sent, so the next draw sends every frame again."""
@@ -185,6 +188,8 @@ class Renderer:
         result = layout.compute(pane.cols, pane.rows, pane.cell_w, pane.cell_h, len(selection.entries))
         if result is None:
             return
+        if not self.thumbs_enabled:
+            result = layout.Layout(main=layout.Rect(col=0, row=1, cols=pane.cols, rows=pane.rows - 1), grid=None)
         self.grid = result.grid
         current = selection.current()
         if current is None:
@@ -201,8 +206,15 @@ class Renderer:
             )
             self.sent["main"] = main_key
         if result.grid is not None:
-            self.draw_thumbs(selection, result.grid, pane)
-        title = selection.title(size)
+            try:
+                self.draw_thumbs(selection, result.grid, pane)
+            except herdr_api.HerdrError as error:
+                if not error.resource:
+                    raise
+                # Out of layers or graphics memory: keep the main image, drop thumbnails.
+                self.thumbs_enabled = False
+                self.display.drop_thumbs()
+        title = selection.title(size) + ("" if self.thumbs_enabled else " [no thumbnails]")
         if title != self.sent.get("title"):
             self.display.show_title(title)
             self.sent["title"] = title

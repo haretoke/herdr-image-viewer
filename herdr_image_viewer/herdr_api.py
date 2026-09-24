@@ -14,8 +14,18 @@ MAX_LINE_BYTES = 1024 * 1024
 REJECTION_WAIT_SECONDS = 0.2
 
 
+RESOURCE_CODES = {"layer_limit", "graphics_budget_exceeded"}
+
+
 class HerdrError(Exception):
-    pass
+    def __init__(self, message, code=None):
+        super().__init__(message)
+        self.code = code
+
+    @property
+    def resource(self):
+        """Herdr ran out of graphics layers or memory (not a fault of this frame)."""
+        return self.code in RESOURCE_CODES
 
 
 def error_text(details):
@@ -24,17 +34,25 @@ def error_text(details):
     return str(details)
 
 
-def rejection(line):
-    """The error message in a reply line, or None if it is not an error."""
+def reply_error(line):
+    """(message, code) of an error reply line, or None if it is not an error."""
     if not line:
-        return "Herdr closed the connection"
+        return "Herdr closed the connection", None
     try:
         response = json.loads(line)
     except (TypeError, ValueError):
-        return "Herdr returned invalid JSON"
+        return "Herdr returned invalid JSON", None
     if "error" not in response:
         return None
-    return error_text(response.get("error"))
+    details = response.get("error")
+    code = details.get("code") if isinstance(details, dict) else None
+    return error_text(details), code
+
+
+def rejection(line):
+    """The error message in a reply line, or None if it is not an error."""
+    error = reply_error(line)
+    return None if error is None else error[0]
 
 
 class GraphicsStream:
@@ -63,11 +81,11 @@ class GraphicsStream:
         except (OSError, TimeoutError) as error:
             client.close()
             raise HerdrError(f"could not open a graphics stream: {error}") from error
-        refused = rejection(line)
+        refused = reply_error(line)
         if refused:
             reader.close()
             client.close()
-            raise HerdrError(f"Herdr refused the graphics stream: {refused}")
+            raise HerdrError(f"Herdr refused the graphics stream: {refused[0]}", refused[1])
         self.client, self.reader = client, reader
 
     def is_open(self):
@@ -114,7 +132,8 @@ class GraphicsStream:
             self.close()
             raise HerdrError(f"the graphics stream failed: {error}") from error
         self.close()
-        raise HerdrError(f"Herdr rejected the frame: {rejection(line) or 'unexpected reply'}")
+        message, code = reply_error(line) or ("unexpected reply", None)
+        raise HerdrError(f"Herdr rejected the frame: {message}", code)
 
     def close(self):
         # Close the makefile() reader too: while it is open the connection, and

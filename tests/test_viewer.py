@@ -96,6 +96,10 @@ class FakeDisplay:
         self.lost_reasons = []
         self.failing = False
         self.attempts = 0
+        self.main_error = None
+        self.thumb_error = None
+        self.thumb_attempts = 0
+        self.thumbs_dropped = 0
 
     def lost(self):
         return self.lost_reasons.pop(0) if self.lost_reasons else None
@@ -104,10 +108,18 @@ class FakeDisplay:
         self.attempts += 1
         if self.failing:
             raise HerdrError("Herdr refused the graphics stream: layer limit")
+        if self.main_error is not None:
+            raise self.main_error
         self.main_frames.append((data, placement))
 
     def send_thumbs(self, data, width, height, placement):
+        self.thumb_attempts += 1
+        if self.thumb_error is not None:
+            raise self.thumb_error
         self.thumb_frames.append(placement)
+
+    def drop_thumbs(self):
+        self.thumbs_dropped += 1
 
     def show_title(self, text):
         self.titles.append(text)
@@ -239,6 +251,25 @@ class ViewerTest(unittest.TestCase):
         self.assertEqual(attempts_at, [21, 23, 27, 35, 51, 81])  # 1, 2, 4, 8, 16, 30 s apart
         self.assertIn("cannot show images", self.display.titles[-1])
         self.assertIn("layer limit", self.display.titles[-1])
+
+    def test_a_resource_error_drops_the_thumbnails_first_then_reports_the_main_image(self):
+        limit = HerdrError("pane graphics layer limit reached", code="layer_limit")
+        self.display.thumb_error = limit
+        attempts = self.display.thumb_attempts
+        self.viewer.on_input(b"h")
+        self.viewer.step()  # the thumbnail stream is refused: thumbnails are dropped
+        self.viewer.on_input(b"h")
+        self.viewer.step()
+
+        self.assertEqual(self.display.thumb_attempts, attempts + 1)
+        self.assertEqual(self.display.thumbs_dropped, 1)
+        self.assertEqual(self.shown(), ["12.png", "11.png", "10.png"])
+        self.assertTrue(self.display.titles[-1].endswith("[no thumbnails]"))
+
+        self.display.main_error = limit
+        self.viewer.on_input(b"h")
+        self.viewer.step()
+        self.assertEqual(self.display.titles[-1], "image unavailable: pane graphics layer limit reached")
 
 
 if __name__ == "__main__":

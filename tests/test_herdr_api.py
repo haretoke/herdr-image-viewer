@@ -84,8 +84,10 @@ class StreamOpenTest(unittest.TestCase):
         fake = FakeHerdr(handler)
         self.addCleanup(fake.close)
 
-        with self.assertRaisesRegex(herdr_api.HerdrError, "layer limit"):
+        with self.assertRaisesRegex(herdr_api.HerdrError, "layer limit") as raised:
             herdr_api.GraphicsStream(fake.path, "w1:p2", "main", 10).open()
+        self.assertEqual(raised.exception.code, "layer_limit")
+        self.assertTrue(raised.exception.resource)
 
 
 PLACEMENT = {"viewport_col": 1, "viewport_row": 2, "grid_cols": 3, "grid_rows": 1}
