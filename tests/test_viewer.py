@@ -159,6 +159,13 @@ class ViewerTest(unittest.TestCase):
 
         self.assertEqual(self.shown(), ["12.png", "9.png"])
 
+    def test_a_move_blocked_at_an_end_sends_nothing(self):
+        self.viewer.on_input(b"l")  # already on the newest image
+        self.viewer.step()
+
+        self.assertEqual(self.shown(), ["12.png"])
+        self.assertEqual(len(self.display.thumb_frames), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -97,8 +97,9 @@ class Viewer:
         for byte in data:
             direction = KEYS.get(bytes([byte]))
             if direction is not None:
+                before = self.selection.selected
                 self.selection.move(direction, self.renderer.grid)
-                self.dirty = True
+                self.dirty = self.dirty or self.selection.selected != before
 
     def step(self):
         if self.dirty:
