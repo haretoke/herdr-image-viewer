@@ -275,7 +275,7 @@ checks at the end.
 
 ### png / composite (hand-made RGBA fixtures, no external tools)
 - [x] the PNG encoder writes valid chunks and CRCs; an external decoder reads it back
-- [ ] thumbnails land in their cells with the highlight border on the selection (pixel assertions)
+- [x] thumbnails land in their cells with the highlight border on the selection (pixel assertions)
 - [ ] unselected thumbnails are dimmed once, not again on every move
 - [ ] semi-transparent thumbnails are flattened onto the background before dimming
 - [ ] a composite over the canvas budget reduces the page capacity
