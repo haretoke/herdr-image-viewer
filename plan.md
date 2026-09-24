@@ -281,7 +281,7 @@ checks at the end.
 - [x] a composite over the canvas budget reduces the page capacity
 
 ### imaging
-- [ ] PNG dimensions are read from the header; truncated PNGs are rejected
+- [x] PNG dimensions are read from the header; truncated PNGs are rejected
 - [ ] an image is resized to an exact pixel size with the available tool
 - [ ] resizing gives up after its time limit and reports an error
 - [ ] a GIF or TIFF converts its first frame
