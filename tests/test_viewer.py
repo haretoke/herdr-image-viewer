@@ -18,6 +18,14 @@ class SelectionTest(unittest.TestCase):
         self.assertEqual(selection.current().name, "shot.png")
         self.assertEqual(selection.title(size=(1050, 966)), "3/3 shot.png 1050x966")
 
+    def test_while_following_the_latest_a_new_image_becomes_the_selection(self):
+        selection = Selection()
+        selection.update([entry(1), entry(2)])
+
+        selection.update([entry(1), entry(2), entry(3)])
+
+        self.assertEqual(selection.current(), entry(3))
+
 
 if __name__ == "__main__":
     unittest.main()
