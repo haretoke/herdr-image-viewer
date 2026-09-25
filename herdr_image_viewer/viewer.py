@@ -53,9 +53,12 @@ class Selection:
         position = self.index()
         if position is None:
             return
-        target = layout.move(grid, len(self.entries), position, direction)
-        self.selected = self.entries[target].sha256
-        self.follow_latest = target == len(self.entries) - 1
+        self.select(layout.move(grid, len(self.entries), position, direction))
+
+    def select(self, position):
+        """Select an entry; on the newest one, follow the latest again."""
+        self.selected = self.entries[position].sha256
+        self.follow_latest = position == len(self.entries) - 1
         if self.follow_latest:
             self.has_new = False
 
