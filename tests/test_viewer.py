@@ -78,7 +78,7 @@ class KeyParserTest(unittest.TestCase):
         self.assertEqual(parser.feed(b"["), [])
         self.assertEqual(parser.feed(b"D"), ["left"])
         self.assertEqual(parser.feed(b"hj\x1b[C\x1bOAlkq"), ["left", "down", "right", "up", "right", "up", "quit"])
-        self.assertEqual(parser.feed(b"\x1b[Zx"), [])  # unknown sequences and keys are ignored
+        self.assertEqual(parser.feed(b"\x1b[Zz"), [])  # unknown sequences and keys are ignored
 
 
 class FakeImages:
@@ -320,7 +320,7 @@ class ViewerTest(unittest.TestCase):
         self.assertIn("layer limit", self.display.titles[-1])
 
     def test_after_giving_up_a_key_or_a_resize_starts_a_new_round_of_retries(self):
-        for label, nudge in {"key": lambda: self.viewer.on_input(b"x"), "resize": self.viewer.on_resize}.items():
+        for label, nudge in {"key": lambda: self.viewer.on_input(b"z"),"resize": self.viewer.on_resize}.items():
             with self.subTest(label):
                 self.display.failing = True
                 self.viewer.on_input(b"h")
