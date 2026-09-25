@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest import mock
 
 from herdr_image_viewer.safety import UnsafeInput
-from herdr_image_viewer.store import CapacityError, NewerSchema, Store
+from herdr_image_viewer.store import CapacityError, NewerSchema, Store, read_history_file
 
 # 40 bytes: the signature and an IHDR chunk declaring 2x1 pixels (no image data).
 PNG = b"\x89PNG\r\n\x1a\n" + struct.pack(">I4sIIBBBBB", 13, b"IHDR", 2, 1, 8, 2, 0, 0, 0) + bytes(11)
@@ -231,6 +231,14 @@ class RemoveTest(StoreFixture):
         self.assertEqual(self.store.archive_path("claude:s1", first).read_bytes(), PNG + b"first.png")
         self.assertEqual(self.store.archive_path("claude:s1", third).read_bytes(), PNG + b"third.png")
         self.assertEqual((self.sources / "second.png").read_bytes(), PNG + b"second.png")  # the original stays
+
+    def test_removing_the_only_entry_leaves_an_empty_history(self):
+        only = self.store.publish("claude:s1", self.image("only.png"))
+
+        self.assertTrue(self.store.remove("claude:s1", only.sha256))
+
+        self.assertEqual(read_history_file(self.store.history_path("claude:s1"))[:2], ("ok", []))
+        self.assertEqual(list((self.store.conversation_dir("claude:s1") / "archive").iterdir()), [])
 
 
 DAY = 24 * 60 * 60

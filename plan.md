@@ -289,7 +289,7 @@ checks at the end.
 - [x] publish runs the age-based GC at most once an hour
 - [x] GC removes unreferenced archive files and temp files older than an hour, except in protected conversations
 - [x] removing an entry drops it from the history and deletes its archive; the others keep their order and archives
-- [ ] removing the only entry leaves an empty history
+- [x] removing the only entry leaves an empty history
 - [ ] removing an entry that is not there, or from a missing, corrupt, or newer-schema history, changes nothing
 
 ### layout
