@@ -417,6 +417,14 @@ checks at the end.
       v0.1.0 installed by devcon-herdr: the owner confirmed the viewer works;
       the store held the conversation's image and there was no hook.log or
       viewer.log.)
+- [x] real devices: x removes the selected image and the next image is shown again (Mac)
+      (2026-09-25, Mac, linked clone, a Claude session whose viewer opened in
+      a tab the owner was not looking at: the viewer showed "3/3
+      remove-check-1.png 320x200"; `x` sent with `herdr pane send-text` gave
+      "2/2 viewer-check-2.png 300x420", then `xx` gave "no images yet" with an
+      empty history and archive directory. The next image read showed "1/1
+      remove-check-2.png 320x200" in the same pane, so real Herdr lets the
+      closed main layer be opened again. No hook.log or viewer.log.)
 - [ ] real devices: publish into a hidden tab, then show it
 - [ ] real devices: several conversations at once, each with its own viewer and history
 - [ ] real devices: detach and reattach the client while a viewer is open
