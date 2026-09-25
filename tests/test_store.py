@@ -217,6 +217,22 @@ class StoreTest(StoreFixture):
         self.assertEqual([p.name for p in archive.iterdir() if p.name.startswith(".")], [])
 
 
+class RemoveTest(StoreFixture):
+    def test_removing_an_entry_drops_it_and_its_archive_and_keeps_the_others(self):
+        first, second, third = (
+            self.store.publish("claude:s1", self.image(name, PNG + name.encode()))
+            for name in ("first.png", "second.png", "third.png")
+        )
+
+        self.assertTrue(self.store.remove("claude:s1", second.sha256))
+
+        self.assertEqual(self.store.history("claude:s1"), [first, third])
+        self.assertFalse(self.store.archive_path("claude:s1", second).exists())
+        self.assertEqual(self.store.archive_path("claude:s1", first).read_bytes(), PNG + b"first.png")
+        self.assertEqual(self.store.archive_path("claude:s1", third).read_bytes(), PNG + b"third.png")
+        self.assertEqual((self.sources / "second.png").read_bytes(), PNG + b"second.png")  # the original stays
+
+
 DAY = 24 * 60 * 60
 
 

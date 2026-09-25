@@ -285,6 +285,15 @@ class Store:
         self._maybe_gc()  # after the conversation lock: global lock first
         return entry
 
+    def remove(self, key, sha256):
+        """Remove the entry with this content hash from the history and delete
+        its archive; the original file is never touched."""
+        with self._conversation_lock(key):
+            _, entries = self._read_history(key)
+            removed = [entry for entry in entries if entry.sha256 == sha256]
+            self._replace_history(key, [entry for entry in entries if entry.sha256 != sha256], removed)
+        return True
+
     def _maybe_gc(self):
         """Run GC if the last run recorded in gc.stamp is an hour old or more."""
         stamp = self.root / "gc.stamp"
