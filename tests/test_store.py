@@ -240,6 +240,29 @@ class RemoveTest(StoreFixture):
         self.assertEqual(read_history_file(self.store.history_path("claude:s1"))[:2], ("ok", []))
         self.assertEqual(list((self.store.conversation_dir("claude:s1") / "archive").iterdir()), [])
 
+    def test_removing_what_is_not_there_changes_nothing(self):
+        kept = self.store.publish("claude:s1", self.image("kept.png"))
+        history_path = self.store.history_path("claude:s1")
+        cases = {
+            "an unknown entry": history_path.read_bytes(),
+            "a corrupt history": b"{not json",
+            "a newer-schema history": b'{"schema_version": 2, "entries": "a format this version does not know"}',
+        }
+        for label, history in cases.items():
+            with self.subTest(label):
+                history_path.write_bytes(history)
+                self.now += 60
+                sha256 = "0" * 64 if label == "an unknown entry" else kept.sha256
+
+                self.assertFalse(self.store.remove("claude:s1", sha256))
+
+                self.assertEqual(history_path.read_bytes(), history)
+                self.assertTrue(self.store.archive_path("claude:s1", kept).exists())
+                self.assertEqual(list(history_path.parent.glob("history.corrupt-*.json")), [])
+        with self.subTest("a missing history"):
+            self.assertFalse(self.store.remove("claude:s2", kept.sha256))
+            self.assertFalse(self.store.conversation_dir("claude:s2").exists())
+
 
 DAY = 24 * 60 * 60
 

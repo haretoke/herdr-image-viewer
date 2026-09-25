@@ -287,10 +287,14 @@ class Store:
 
     def remove(self, key, sha256):
         """Remove the entry with this content hash from the history and delete
-        its archive; the original file is never touched."""
+        its archive; the original file is never touched. Return whether it was
+        there. A missing, corrupt, or newer-schema history reads as empty, so
+        it is left as it is."""
         with self._conversation_lock(key):
             _, entries = self._read_history(key)
             removed = [entry for entry in entries if entry.sha256 == sha256]
+            if not removed:
+                return False
             self._replace_history(key, [entry for entry in entries if entry.sha256 != sha256], removed)
         return True
 

@@ -290,7 +290,7 @@ checks at the end.
 - [x] GC removes unreferenced archive files and temp files older than an hour, except in protected conversations
 - [x] removing an entry drops it from the history and deletes its archive; the others keep their order and archives
 - [x] removing the only entry leaves an empty history
-- [ ] removing an entry that is not there, or from a missing, corrupt, or newer-schema history, changes nothing
+- [x] removing an entry that is not there, or from a missing, corrupt, or newer-schema history, changes nothing
 
 ### layout
 - [x] a tall pane (by pixel aspect) places the grid below the main image
