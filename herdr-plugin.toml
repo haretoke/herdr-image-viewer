@@ -1,6 +1,6 @@
 id = "haretoke.image-viewer"
 name = "Image viewer"
-version = "0.1.0"
+version = "0.2.0"
 min_herdr_version = "0.9.1"
 description = "Per-conversation history of the images an agent reads, with thumbnails and hjkl navigation"
 platforms = ["linux", "macos"]

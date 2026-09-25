@@ -13,7 +13,7 @@ highlighted.
 - Images are copied into the plugin's state directory, so they stay viewable
   after the original file is gone.
 
-Status: early (0.1.0). The tests run on macOS and in a Linux container; built
+Status: early (0.2.0). The tests run on macOS and in a Linux container; built
 against Herdr 0.9.1.
 
 ## Requirements
