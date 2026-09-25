@@ -63,12 +63,17 @@ own history.
 | `l` / `→` | right |
 | `k` / `↑` | up |
 | `j` / `↓` | down |
+| `x` | remove the selected image from the history |
 | `q` | close the viewer |
 
 Moving past the visible thumbnails pages through the history. Closing the
 viewer keeps the history; the next image reopens it. The **Open image viewer**
 action reopens the viewer for the conversation last shown from the focused
 pane.
+
+`x` asks for no confirmation. It deletes the plugin's copy and leaves the
+original file alone, so reading the file again brings the image back while the
+file exists.
 
 Other agents or scripts can publish an image directly:
 

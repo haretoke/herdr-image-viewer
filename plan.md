@@ -142,9 +142,9 @@ error and keeps the existing history.
   commit the archive file, atomically replace the history (fsync the file
   before the rename), then delete unreferenced archives. Removing an entry
   replaces the history the same way, then deletes its archive. A corrupt
-  history is moved aside and its archives are protected; an unknown schema version is left
-  untouched and never collected. Lock order: global GC lock, then the
-  conversation lock.
+  history is moved aside and its archives are protected; an unknown schema
+  version is left untouched and never collected. Lock order: global GC lock,
+  then the conversation lock.
 - `safety`: regular files only (opened once, copied from that descriptor), magic
   bytes, size and pixel caps, permissions (0700 directories, 0600 files, owner
   and symlink checks on existing storage), control-character stripping.
