@@ -3,6 +3,7 @@ import unittest
 from herdr_image_viewer import composite, limits
 from herdr_image_viewer.herdr_api import HerdrError
 from herdr_image_viewer.imaging import ImagingError
+from herdr_image_viewer.safety import UnsafeInput
 from herdr_image_viewer.store import Entry
 from herdr_image_viewer.viewer import KeyParser, Pane, Renderer, Selection, Viewer
 
@@ -214,12 +215,15 @@ class ViewerTest(unittest.TestCase):
         self.pane = PANE
         self.now = 0.0
         self.removed = []
+        self.remove_error = None
         self.viewer = Viewer(Renderer(self.display, self.images), lambda: self.entries,
                              lambda: self.pane, self.remove, clock=lambda: self.now)
         self.viewer.step()
 
     def remove(self, removed):
         """Stands in for the store: drops the entry from the history."""
+        if self.remove_error is not None:
+            raise self.remove_error
         self.removed.append(removed.name)
         self.entries = [kept for kept in self.entries if kept != removed]
 
@@ -243,6 +247,34 @@ class ViewerTest(unittest.TestCase):
         self.assertEqual(self.removed, ["10.png", "12.png", "11.png", "9.png"])
         self.assertEqual(self.shown(), ["12.png", "10.png", "11.png", "12.png", "11.png", "8.png"])
         self.assertEqual(self.display.titles[-1], "8/8 8.png 200x100")
+
+    def test_x_without_images_does_nothing_and_a_failed_removal_is_shown_in_the_title(self):
+        errors = {
+            "OSError": OSError(28, "No space left on device"),
+            "UnsafeInput": UnsafeInput("storage '/state' belongs to another user"),
+        }
+        for label, error in errors.items():
+            with self.subTest(label):
+                self.remove_error = error
+                frames = len(self.display.main_frames)
+
+                self.viewer.on_input(b"x")
+                self.viewer.step()
+
+                self.assertIn(f"cannot remove 12.png: {error}", self.display.titles[-1])
+                self.assertEqual(len(self.display.main_frames), frames)
+                self.assertFalse(self.viewer.quit)
+        self.viewer.on_input(b"h")  # still running
+        self.viewer.step()
+        self.assertEqual(self.shown()[-1], "11.png")
+
+        self.remove_error = None
+        self.entries = []
+        self.viewer.step()
+        self.viewer.on_input(b"x")
+        self.viewer.step()
+        self.assertEqual(self.removed, [])
+        self.assertEqual(self.display.titles[-1], "no images yet")
 
     def test_repeated_keys_coalesce_into_one_redraw_of_the_last_selection(self):
         self.viewer.on_input(b"hhh")

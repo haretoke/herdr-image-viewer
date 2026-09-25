@@ -357,7 +357,7 @@ checks at the end.
 - [x] an unexpected error is logged to a file under the state directory before the viewer exits
 - [x] x removes the selected image; the next newer image, or the new newest, is selected
 - [x] a selection that lands on the newest image after its own entry went away follows the latest again and clears "new"
-- [ ] x with no images does nothing, and a removal that fails shows why in the title and keeps the viewer running
+- [x] x with no images does nothing, and a removal that fails shows why in the title and keeps the viewer running
 - [ ] x in a running viewer removes the image from the stored history and its archive, and the next publish is shown again
 
 ### launcher / cli

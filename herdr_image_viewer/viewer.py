@@ -157,8 +157,17 @@ class Viewer:
 
     def remove_selected(self):
         """Remove the selected image from the history and re-read it at once,
-        so the next key in the same read acts on the new selection."""
-        self.remove_entry(self.selection.current())
+        so the next key in the same read acts on the new selection. A failure
+        is shown in the title and the image stays."""
+        current = self.selection.current()
+        if current is None:
+            return
+        try:
+            self.remove_entry(current)
+        except (OSError, safety.UnsafeInput) as error:
+            name, reason = safety.display_text(current.name), safety.display_text(str(error))
+            self.renderer.display.show_title(f"cannot remove {name}: {reason}")
+            return
         self.selection.update(self.read_history())
         self.dirty = True
 
