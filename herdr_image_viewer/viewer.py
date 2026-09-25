@@ -78,7 +78,7 @@ class Selection:
         return f"{self.label()} {width}x{height}{marker}"
 
 
-KEYS = {b"h": "left", b"j": "down", b"k": "up", b"l": "right", b"q": "quit", b"Q": "quit"}
+KEYS = {b"h": "left", b"j": "down", b"k": "up", b"l": "right", b"x": "remove", b"q": "quit", b"Q": "quit"}
 ARROWS = {b"A": "up", b"B": "down", b"C": "right", b"D": "left"}
 
 
@@ -117,10 +117,11 @@ class Viewer:
     a burst of keys redraws only the last selection.
     """
 
-    def __init__(self, renderer, read_history, read_pane, clock=time.monotonic):
+    def __init__(self, renderer, read_history, read_pane, remove_entry, clock=time.monotonic):
         self.renderer = renderer
         self.read_history = read_history
         self.read_pane = read_pane
+        self.remove_entry = remove_entry
         self.clock = clock
         self.selection = Selection()  # filled by the first step
         self.dirty = True
@@ -145,9 +146,19 @@ class Viewer:
             if key == "quit":
                 self.quit = True
                 continue
+            if key == "remove":
+                self.remove_selected()
+                continue
             before = self.selection.selected
             self.selection.move(key, self.renderer.grid)
             self.dirty = self.dirty or self.selection.selected != before
+
+    def remove_selected(self):
+        """Remove the selected image from the history and re-read it at once,
+        so the next key in the same read acts on the new selection."""
+        self.remove_entry(self.selection.current())
+        self.selection.update(self.read_history())
+        self.dirty = True
 
     def step(self):
         now = self.clock()

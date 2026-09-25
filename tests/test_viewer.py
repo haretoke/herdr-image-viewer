@@ -198,12 +198,36 @@ class ViewerTest(unittest.TestCase):
         self.entries = [entry(number) for number in range(1, 13)]
         self.pane = PANE
         self.now = 0.0
+        self.removed = []
         self.viewer = Viewer(Renderer(self.display, self.images), lambda: self.entries,
-                             lambda: self.pane, clock=lambda: self.now)
+                             lambda: self.pane, self.remove, clock=lambda: self.now)
         self.viewer.step()
+
+    def remove(self, removed):
+        """Stands in for the store: drops the entry from the history."""
+        self.removed.append(removed.name)
+        self.entries = [kept for kept in self.entries if kept != removed]
 
     def shown(self):
         return [data.split()[1].decode() for data, _ in self.display.main_frames]
+
+    def test_x_removes_the_selected_image_and_selects_the_next_newer_or_the_new_newest(self):
+        self.viewer.on_input(b"hh")
+        self.viewer.step()
+        self.viewer.on_input(b"x")
+        self.viewer.step()
+        self.assertEqual(self.display.titles[-1], "10/11 11.png 200x100")
+
+        self.viewer.on_input(b"l")
+        self.viewer.step()
+        self.viewer.on_input(b"x")
+        self.viewer.step()
+        self.viewer.on_input(b"xx")  # one image per key, even within one read
+        self.viewer.step()
+
+        self.assertEqual(self.removed, ["10.png", "12.png", "11.png", "9.png"])
+        self.assertEqual(self.shown(), ["12.png", "10.png", "11.png", "12.png", "11.png", "8.png"])
+        self.assertEqual(self.display.titles[-1], "8/8 8.png 200x100")
 
     def test_repeated_keys_coalesce_into_one_redraw_of_the_last_selection(self):
         self.viewer.on_input(b"hhh")
@@ -273,7 +297,7 @@ class ViewerTest(unittest.TestCase):
         # Opened in a hidden tab: the pty still has the whole tab's nominal size.
         self.pane = Pane(cols=140, rows=40, cell_w=10, cell_h=20)
         viewer = Viewer(Renderer(self.display, self.images), lambda: self.entries,
-                        lambda: self.pane, clock=lambda: self.now)
+                        lambda: self.pane, self.remove, clock=lambda: self.now)
         viewer.step()
         stale = self.display.main_frames[-1][1]
 

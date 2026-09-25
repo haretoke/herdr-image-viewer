@@ -214,7 +214,8 @@ def show(environ, root, key):
         cell_w, cell_h = display.cell_size()
         return Pane(cols=cols, rows=rows, cell_w=cell_w, cell_h=cell_h)
 
-    viewer = Viewer(Renderer(display, StoreImages(store, key)), lambda: store.history(key), read_pane)
+    viewer = Viewer(Renderer(display, StoreImages(store, key)), lambda: store.history(key), read_pane,
+                    lambda entry: store.remove(key, entry.sha256))
     try:
         with terminal:
             run(viewer, terminal)

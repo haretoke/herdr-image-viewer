@@ -355,7 +355,7 @@ checks at the end.
 - [x] an entry whose archive is missing shows a placeholder
 - [x] a conversation removed by GC turns into an empty view
 - [x] an unexpected error is logged to a file under the state directory before the viewer exits
-- [ ] x removes the selected image; the next newer image, or the new newest, is selected
+- [x] x removes the selected image; the next newer image, or the new newest, is selected
 - [ ] a selection that lands on the newest image after its own entry went away follows the latest again and clears "new"
 - [ ] x with no images does nothing, and a removal that fails shows why in the title and keeps the viewer running
 - [ ] x in a running viewer removes the image from the stored history and its archive, and the next publish is shown again
