@@ -69,6 +69,21 @@ class SelectionTest(unittest.TestCase):
         selection.update([entry(3), entry(2), entry(4)])  # 1 fell out of the history
         self.assertEqual(selection.current(), entry(3))
 
+    def test_landing_on_the_newest_image_after_the_selected_one_went_away_follows_again(self):
+        selection = Selection()
+        selection.update([entry(1), entry(2), entry(3)])
+        selection.move("left", grid=None)
+        selection.update([entry(1), entry(2), entry(3), entry(4)])
+        selection.move("right", grid=None)  # on 3: not the newest, so still marked
+
+        selection.update([entry(1), entry(2), entry(4)])  # 3 was removed
+
+        self.assertEqual(selection.current(), entry(4))
+        self.assertTrue(selection.follow_latest)
+        self.assertFalse(selection.has_new)
+        selection.update([entry(1), entry(2), entry(4), entry(5)])
+        self.assertEqual(selection.current(), entry(5))
+
 
 class KeyParserTest(unittest.TestCase):
     def test_arrow_key_escape_sequences_split_across_reads_are_parsed(self):

@@ -46,8 +46,7 @@ class Selection:
         if any(entry.sha256 not in previous for entry in self.entries):
             self.has_new = True
         if self.index() is None:  # the selected entry fell out: take its nearest neighbor
-            nearest = min(previous_index or 0, len(self.entries) - 1)
-            self.selected = self.entries[nearest].sha256
+            self.select(min(previous_index or 0, len(self.entries) - 1))
 
     def move(self, direction, grid):
         position = self.index()
