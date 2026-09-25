@@ -73,11 +73,11 @@ class FakeHerdrServer:
                 self.log("frame", layer)
             self.log("closed", layer)
 
-    def wait_for(self, event, timeout=10):
+    def wait_for(self, event, timeout=10, count=1):
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             with self.lock:
-                if event in self.events:
+                if self.events.count(event) >= count:
                     return True
             time.sleep(0.05)
         return False
@@ -170,6 +170,31 @@ class ViewerProcessTest(unittest.TestCase):
         self.assertIn(b"\x1b[?1049l", self.output)  # and left
         self.assertIn(b"\x1b[?25h", self.output)  # cursor shown again
         self.assertIn(b"1/1 shot.png 40x20", self.output)
+
+    def test_x_removes_the_image_from_the_store_and_the_next_publish_shows_again(self):
+        store = Store(self.store_root)
+        shot = store.history("claude:s1")[0]
+        process, master = self.start()
+        self.assertTrue(self.herdr.wait_for(("frame", "main")), self.herdr.events)
+        self.drain(master, 0.3)
+
+        os.write(master, b"x")
+
+        self.assertTrue(self.herdr.wait_for(("closed", "main")), self.herdr.events)
+        self.drain(master, 0.5)
+        self.assertIn(b"no images yet", self.output)
+        self.assertEqual(store.history("claude:s1"), [])
+        self.assertFalse(store.archive_path("claude:s1", shot).exists())
+
+        source = Path(self.directory.name) / "next.png"
+        source.write_bytes(png.encode_rgb(40, 20, b"\x30\x20\x10" * 800))
+        store.publish("claude:s1", source)
+
+        self.assertTrue(self.herdr.wait_for(("frame", "main"), count=2), self.herdr.events)
+        os.write(master, b"q")
+        self.assertEqual(self.wait_exit(process, master), 0)
+        self.assertIn(b"1/1 next.png 40x20", self.output)
+        self.assertFalse((self.store_root / "viewer.log").exists())
 
     def test_sigterm_and_sighup_exit_and_restore_the_terminal(self):
         for signum in (signal.SIGTERM, signal.SIGHUP):
