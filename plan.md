@@ -59,7 +59,14 @@ Fable; this revision applies the adopted findings and the owner's decisions.
   image becomes the selection. Moving to an older image turns it off and the
   title shows a "new" marker when images arrive; moving back to the newest image
   turns it on again and clears the marker. If the selected entry falls out of
-  the history, the nearest remaining entry is selected.
+  the history, the nearest remaining entry is selected: the next newer one, or
+  the new newest. Landing on the newest entry this way turns follow_latest on
+  and clears the marker, as moving there does.
+- Removing (added 2026-09-25 at the owner's request): `x` in the viewer removes
+  the selected image from the history and deletes the plugin's copy of it; the
+  original file is never touched. No confirmation: `x` is away from the
+  movement keys, only the plugin's copy goes, and reading the file again brings
+  it back while the file exists. A removal that fails is shown in the title.
 - Claude hook: the shim is the hook devcon-herdr already distributes,
   `~/.claude/hooks/herdr-image-preview-hook.sh`, keeping its file name and its
   settings.json entry (changed on 2026-09-24 from a renamed
@@ -133,8 +140,9 @@ error and keeps the existing history.
 - `store`: histories (JSON snapshot per conversation with a schema version) and
   archives. Publish order: copy the input to a temp file while hashing it,
   commit the archive file, atomically replace the history (fsync the file
-  before the rename), then delete unreferenced archives. A corrupt history is
-  moved aside and its archives are protected; an unknown schema version is left
+  before the rename), then delete unreferenced archives. Removing an entry
+  replaces the history the same way, then deletes its archive. A corrupt
+  history is moved aside and its archives are protected; an unknown schema version is left
   untouched and never collected. Lock order: global GC lock, then the
   conversation lock.
 - `safety`: regular files only (opened once, copied from that descriptor), magic
@@ -280,6 +288,9 @@ checks at the end.
 - [x] publish fails with a capacity error when GC cannot free enough space, keeping the history
 - [x] publish runs the age-based GC at most once an hour
 - [x] GC removes unreferenced archive files and temp files older than an hour, except in protected conversations
+- [ ] removing an entry drops it from the history and deletes its archive; the others keep their order and archives
+- [ ] removing the only entry leaves an empty history
+- [ ] removing an entry that is not there, or from a missing, corrupt, or newer-schema history, changes nothing
 
 ### layout
 - [x] a tall pane (by pixel aspect) places the grid below the main image
@@ -344,6 +355,10 @@ checks at the end.
 - [x] an entry whose archive is missing shows a placeholder
 - [x] a conversation removed by GC turns into an empty view
 - [x] an unexpected error is logged to a file under the state directory before the viewer exits
+- [ ] x removes the selected image; the next newer image, or the new newest, is selected
+- [ ] a selection that lands on the newest image after its own entry went away follows the latest again and clears "new"
+- [ ] x with no images does nothing, and a removal that fails shows why in the title and keeps the viewer running
+- [ ] x in a running viewer removes the image from the stored history and its archive, and the next publish is shown again
 
 ### launcher / cli
 - [x] `publish` opens the viewer next to the caller pane when the conversation has none
