@@ -279,10 +279,7 @@ class Store:
                 # The same content published again moves to the newest position.
                 entries = [old for old in current if old.sha256 != entry.sha256] + [entry]
                 kept, dropped = entries[-limits.MAX_HISTORY:], entries[:-limits.MAX_HISTORY]
-                self._write_history(key, kept)
-                # Only after the history no longer references them.
-                for old in dropped:
-                    self.archive_path(key, old).unlink(missing_ok=True)
+                self._replace_history(key, kept, dropped)
         finally:
             temporary.unlink(missing_ok=True)
         self._maybe_gc()  # after the conversation lock: global lock first
@@ -351,6 +348,13 @@ class Store:
             temporary.unlink(missing_ok=True)
             raise
         return temporary, digest.hexdigest(), image_format
+
+    def _replace_history(self, key, entries, dropped):
+        """Under the conversation lock: write the history, then delete the
+        archives of the dropped entries, only once it no longer references them."""
+        self._write_history(key, entries)
+        for old in dropped:
+            self.archive_path(key, old).unlink(missing_ok=True)
 
     def _write_history(self, key, entries):
         document = {
