@@ -184,6 +184,20 @@ class ViewerProcessTest(unittest.TestCase):
         self.assertLess(max(deleted_main, deleted_thumbs), left_alternate_screen)  # still on its screen
         self.assertEqual(self.herdr.events, [])  # nothing goes through the socket
 
+    def test_without_a_pixel_size_the_viewer_waits_for_herdr_and_draws_once_a_resize_brings_one(self):
+        process, master = self.start()  # no client attached: the pty has no pixel size
+
+        self.assertTrue(self.wait_output(master, b"waiting for Herdr: the cell size is unknown"),
+                        self.output[-300:])
+        self.assertNotIn(SHOW_MAIN, self.output)
+
+        fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 80, *PIXELS))
+        process.send_signal(signal.SIGWINCH)  # a client attached and resized the pane
+
+        self.assertTrue(self.wait_output(master, SHOW_MAIN), self.output[-300:])
+        os.write(master, b"q")
+        self.assertEqual(self.wait_exit(process, master), 0)
+
     def test_q_exits_and_restores_the_terminal(self):
         process, master = self.start(pixels=PIXELS)
         self.assertTrue(self.wait_output(master, SHOW_MAIN), self.output[-300:])

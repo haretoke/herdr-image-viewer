@@ -366,7 +366,7 @@ graphics (Herdr 0.9.2 removed `pane.graphics.*`).
 - [x] deleting an image frees it by id (`a=d,d=I,i=<id>,q=2`)
 - [x] the cell size is the pty's pixel size divided by its cells, and unknown while the pixel size is 0
 - [x] the viewer process draws the main image and the composite as Kitty images in its own pane and deletes both when it exits
-- [ ] without a pixel size (no client attached) the viewer says it is waiting for Herdr, and draws once a resize brings one
+- [x] without a pixel size (no client attached) the viewer says it is waiting for Herdr, and draws once a resize brings one
 
 Cleanup once the viewer draws with Kitty (structural, no behavior change):
 remove `GraphicsStream` and its tests, `HerdrDisplay`, the fake server's
