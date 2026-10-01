@@ -368,6 +368,12 @@ graphics (Herdr 0.9.2 removed `pane.graphics.*`).
 - [x] the viewer process draws the main image and the composite as Kitty images in its own pane and deletes both when it exits
 - [x] without a pixel size (no client attached) the viewer says it is waiting for Herdr, and draws once a resize brings one
 
+Checked on 2026-10-01: against isolated Herdr 0.9.1 and 0.9.3 servers, with a
+client attached to a fake Kitty terminal, the main image (z 10) and the
+composite (z 20) reach the terminal; on the owner's Mac (Herdr 0.9.1) and in
+the kaitori container through the thin client the viewer shows both, moves
+with h/l, re-fits on resize, and q leaves no image behind.
+
 Cleanup once the viewer draws with Kitty (structural, no behavior change; done):
 remove `GraphicsStream` and its tests, `HerdrDisplay`, the fake server's
 graphics handling, `MAX_STREAM_FRAME_BYTES`, and the resource-error path

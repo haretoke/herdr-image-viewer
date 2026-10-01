@@ -16,8 +16,8 @@ highlighted.
   which Herdr renders (on by default; `[terminal] kitty_graphics = false` turns
   it off). Herdr 0.9.2 removed the pane graphics API that 0.2.0 used.
 
-Status: early (0.2.0). The tests run on macOS and in a Linux container; built
-against Herdr 0.9.1.
+Status: early (0.3.0). The tests run on macOS and in a Linux container; built
+against Herdr 0.9.1 and checked with 0.9.3.
 
 ## Requirements
 
