@@ -6,6 +6,7 @@ import termios
 import unittest
 
 from herdr_image_viewer import kitty
+from herdr_image_viewer.app import KittyDisplay
 
 
 class TransmitTest(unittest.TestCase):
@@ -44,6 +45,32 @@ class CellSizeTest(unittest.TestCase):
     def test_the_cell_size_is_unknown_while_the_pixel_size_is_zero(self):
         self.assertIsNone(kitty.cell_size(self.pty(24, 80, 0, 0)))
         self.assertIsNone(kitty.cell_size(self.pty(24, 80, 800, 0)))
+
+
+class FakeTerminal:
+    def __init__(self):
+        self.written = []
+
+    def write(self, text):
+        self.written.append(text)
+
+
+class KittyDisplayTest(unittest.TestCase):
+    def test_frames_go_to_the_pane_as_kitty_images_at_their_placement(self):
+        terminal = FakeTerminal()
+        display = KittyDisplay(terminal)
+        placement = {"viewport_col": 7, "viewport_row": 3, "grid_cols": 4, "grid_rows": 2}
+
+        display.send_main(b"MAIN", 40, 20, placement)
+        display.send_thumbs(b"THUMBS", 40, 20, placement)
+        display.close()
+
+        self.assertEqual(terminal.written, [
+            kitty.transmit(1, 10, 7, 3, b"MAIN"),
+            kitty.transmit(2, 20, 7, 3, b"THUMBS"),
+            kitty.delete(1),
+            kitty.delete(2),
+        ])
 
 
 if __name__ == "__main__":
