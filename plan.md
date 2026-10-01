@@ -361,7 +361,7 @@ The four tests above go with the stream when the viewer moves to Kitty
 graphics (Herdr 0.9.2 removed `pane.graphics.*`).
 
 ### kitty display (Herdr 0.9.2 removed `pane.graphics.*`, 2026-10-01)
-- [ ] a PNG is placed at its cell as one Kitty escape: the cursor moves to the cell, then `a=T,f=100,i=<id>,z=<z>,C=1,q=2`
+- [x] a PNG is placed at its cell as one Kitty escape: the cursor moves to the cell, then `a=T,f=100,i=<id>,z=<z>,C=1,q=2`
 - [ ] PNG data longer than one chunk is split into 4096-byte base64 chunks, `m=1` on all but the last
 - [ ] deleting an image frees it by id (`a=d,d=I,i=<id>,q=2`)
 - [ ] the cell size is the pty's pixel size divided by its cells, and unknown while the pixel size is 0
