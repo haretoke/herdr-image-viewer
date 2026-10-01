@@ -5,6 +5,9 @@ Kitty graphics, which Herdr renders.
 """
 
 import base64
+import fcntl
+import struct
+import termios
 
 CHUNK_BYTES = 4096  # base64 per escape sequence, the Kitty protocol's limit
 
@@ -29,3 +32,13 @@ def transmit(image_id, z_index, col, row, data):
 def delete(image_id):
     """Delete the image with this id, its placements, and its data (d=I)."""
     return f"\x1b_Ga=d,d=I,i={image_id},q=2\x1b\\"
+
+
+def cell_size(fd):
+    """(width, height) of one cell in pixels from the pty's size, or None while
+    the pixel size is 0 (Herdr sets it only while a client is attached)."""
+    rows, cols, width_px, height_px = struct.unpack(
+        "HHHH", fcntl.ioctl(fd, termios.TIOCGWINSZ, b"\0" * 8))
+    if not (rows and cols and width_px and height_px):
+        return None
+    return width_px // cols, height_px // rows

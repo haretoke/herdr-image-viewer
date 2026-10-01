@@ -364,7 +364,7 @@ graphics (Herdr 0.9.2 removed `pane.graphics.*`).
 - [x] a PNG is placed at its cell as one Kitty escape: the cursor moves to the cell, then `a=T,f=100,i=<id>,z=<z>,C=1,q=2`
 - [x] PNG data longer than one chunk is split into 4096-byte base64 chunks, `m=1` on all but the last
 - [x] deleting an image frees it by id (`a=d,d=I,i=<id>,q=2`)
-- [ ] the cell size is the pty's pixel size divided by its cells, and unknown while the pixel size is 0
+- [x] the cell size is the pty's pixel size divided by its cells, and unknown while the pixel size is 0
 - [ ] the viewer process draws the main image and the composite as Kitty images in its own pane and deletes both when it exits
 - [ ] without a pixel size (no client attached) the viewer says it is waiting for Herdr, and draws once a resize brings one
 
