@@ -69,49 +69,9 @@ class Terminal:
         return data or None
 
 
-class HerdrDisplay:
-    """Two stream layers over the viewer's pane: the main image and the thumbnails."""
-
-    def __init__(self, socket_path, pane_id, terminal):
-        self.socket_path = socket_path
-        self.pane_id = pane_id
-        self.terminal = terminal
-        self.main = herdr_api.GraphicsStream(socket_path, pane_id, "main", 10)
-        self.thumbs = herdr_api.GraphicsStream(socket_path, pane_id, "thumbs", 20)
-
-    def cell_size(self):
-        info = herdr_api.request(self.socket_path, "pane.graphics.info", {"pane_id": self.pane_id})
-        return info.get("cell_width_px"), info.get("cell_height_px")
-
-    def send_main(self, data, width, height, placement):
-        self.main.send(data, width, height, placement)
-
-    def send_thumbs(self, data, width, height, placement):
-        self.thumbs.send(data, width, height, placement)
-
-    def clear_main(self):
-        self.main.close()  # closing a stream removes its layer
-
-    def clear_thumbs(self):
-        self.thumbs.close()
-
-    def drop_thumbs(self):
-        self.thumbs.close()
-
-    def lost(self):
-        return self.main.lost() or self.thumbs.lost()
-
-    def show_title(self, text):
-        self.terminal.show_title(text)
-
-    def close(self):
-        self.main.close()
-        self.thumbs.close()
-
-
 class KittyDisplay:
     """The main image and the thumbnails as Kitty images in the viewer's own pane
-    (Herdr 0.9.2 removed the pane.graphics API the HerdrDisplay used)."""
+    (Herdr 0.9.2 removed the pane.graphics API the viewer used before)."""
 
     MAIN = (1, 10)  # image id, z-index
     THUMBS = (2, 20)

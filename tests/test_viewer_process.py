@@ -27,7 +27,8 @@ DELETE_MAIN = b"\x1b_Ga=d,d=I,i=1,q=2\x1b\\"
 
 
 class FakeHerdrServer:
-    """Answers graphics info and accepts graphics streams, logging what happens."""
+    """Logs every request the viewer makes (it should make none: since Herdr
+    0.9.2 its images are Kitty graphics in its own pane) and answers ok."""
 
     def __init__(self, path):
         self.events = []
@@ -40,10 +41,6 @@ class FakeHerdrServer:
         self.thread = threading.Thread(target=self.serve, daemon=True)
         self.thread.start()
 
-    def log(self, *event):
-        with self.lock:
-            self.events.append(event)
-
     def serve(self):
         while self.running:
             try:
@@ -54,36 +51,10 @@ class FakeHerdrServer:
 
     def handle(self, connection):
         with connection:
-            reader = connection.makefile("rb")
-            request = json.loads(reader.readline())
-            method, params = request["method"], request.get("params", {})
-            if method == "pane.graphics.info":
-                result = {"type": "pane_graphics_info", "cell_width_px": 10, "cell_height_px": 20}
-                connection.sendall((json.dumps({"id": request["id"], "result": result}) + "\n").encode())
-                return
-            if method != "pane.graphics.stream":
-                connection.sendall((json.dumps({"id": request["id"], "result": {"type": "ok"}}) + "\n").encode())
-                return
-            layer = params["layer_id"]
-            self.log("open", layer)
-            connection.sendall((json.dumps({"id": request["id"], "result": {"type": "ok"}}) + "\n").encode())
-            while True:
-                line = reader.readline()
-                if not line:
-                    break
-                header = json.loads(line)
-                reader.read(header["data_length"])
-                self.log("frame", layer)
-            self.log("closed", layer)
-
-    def wait_for(self, event, timeout=10, count=1):
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
+            request = json.loads(connection.makefile("rb").readline())
             with self.lock:
-                if self.events.count(event) >= count:
-                    return True
-            time.sleep(0.05)
-        return False
+                self.events.append(("request", request["method"]))
+            connection.sendall((json.dumps({"id": request["id"], "result": {"type": "ok"}}) + "\n").encode())
 
     def close(self):
         self.running = False
