@@ -24,3 +24,8 @@ def transmit(image_id, z_index, col, row, data):
         escapes += [f"\x1b_Gm=1;{chunk}\x1b\\" for chunk in chunks[1:-1]]
         escapes.append(f"\x1b_Gm=0;{chunks[-1]}\x1b\\")
     return f"\x1b[{row + 1};{col + 1}H" + "".join(escapes)
+
+
+def delete(image_id):
+    """Delete the image with this id, its placements, and its data (d=I)."""
+    return f"\x1b_Ga=d,d=I,i={image_id},q=2\x1b\\"

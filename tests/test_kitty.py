@@ -21,5 +21,10 @@ class TransmitTest(unittest.TestCase):
                                    f"\x1b_Gm=0;{encoded[4096:]}\x1b\\")
 
 
+class DeleteTest(unittest.TestCase):
+    def test_deleting_an_image_frees_it_by_id(self):
+        self.assertEqual(kitty.delete(image_id=2), "\x1b_Ga=d,d=I,i=2,q=2\x1b\\")
+
+
 if __name__ == "__main__":
     unittest.main()
