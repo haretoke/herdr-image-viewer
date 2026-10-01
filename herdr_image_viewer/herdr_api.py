@@ -11,18 +11,10 @@ import uuid
 MAX_LINE_BYTES = 1024 * 1024
 
 
-RESOURCE_CODES = {"layer_limit", "graphics_budget_exceeded"}
-
-
 class HerdrError(Exception):
     def __init__(self, message, code=None):
         super().__init__(message)
         self.code = code
-
-    @property
-    def resource(self):
-        """Herdr ran out of graphics layers or memory (not a fault of this frame)."""
-        return self.code in RESOURCE_CODES
 
 
 def error_text(details):

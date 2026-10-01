@@ -129,33 +129,17 @@ class FakeDisplay:
         self.main_frames = []
         self.thumb_frames = []
         self.titles = []
-        self.lost_reasons = []
         self.failing = False
         self.attempts = 0
-        self.main_error = None
-        self.thumb_error = None
-        self.thumb_attempts = 0
-        self.thumbs_dropped = 0
-
-    def lost(self):
-        return self.lost_reasons.pop(0) if self.lost_reasons else None
 
     def send_main(self, data, width, height, placement):
         self.attempts += 1
         if self.failing:
-            raise HerdrError("Herdr refused the graphics stream: layer limit")
-        if self.main_error is not None:
-            raise self.main_error
+            raise HerdrError("the cell size is unknown until a Herdr client is attached")
         self.main_frames.append((data, placement))
 
     def send_thumbs(self, data, width, height, placement):
-        self.thumb_attempts += 1
-        if self.thumb_error is not None:
-            raise self.thumb_error
         self.thumb_frames.append(placement)
-
-    def drop_thumbs(self):
-        self.thumbs_dropped += 1
 
     def clear_main(self):
         self.main_frames.append((b"cleared -", None))
@@ -356,17 +340,19 @@ class ViewerTest(unittest.TestCase):
         self.assertNotEqual(self.display.main_frames[-1][1], stale)
         self.assertEqual(self.display.main_frames[-1][1]["viewport_col"], (60 - 20) // 2)
 
-    def test_a_lost_stream_is_restored_without_input_with_backoff_and_gives_up(self):
-        self.display.lost_reasons.append("Herdr closed the connection")
+    def test_a_failed_draw_is_retried_without_input_with_backoff_and_gives_up(self):
+        self.display.failing = True
+        self.viewer.on_input(b"h")
         self.now = 10.0
-        self.viewer.step()  # noticed; the first retry waits a second
+        self.viewer.step()  # fails; the first retry waits a second
         self.assertEqual(len(self.display.main_frames), 1)
+        self.display.failing = False
         self.now = 11.0
         self.viewer.step()
-        self.assertEqual(len(self.display.main_frames), 2)  # restored without any input
+        self.assertEqual(len(self.display.main_frames), 2)  # drawn without any input
 
         self.display.failing = True
-        self.display.lost_reasons.append("Herdr closed the connection")
+        self.viewer.on_input(b"h")
         self.now = 20.0
         self.viewer.step()
         attempts_at = []
@@ -379,7 +365,7 @@ class ViewerTest(unittest.TestCase):
 
         self.assertEqual(attempts_at, [21, 23, 27, 35, 51, 81])  # 1, 2, 4, 8, 16, 30 s apart
         self.assertIn("cannot show images", self.display.titles[-1])
-        self.assertIn("layer limit", self.display.titles[-1])
+        self.assertIn("cell size is unknown", self.display.titles[-1])
 
     def test_while_a_draw_is_retried_the_title_says_what_the_viewer_waits_for(self):
         self.display.failing = True
@@ -388,7 +374,7 @@ class ViewerTest(unittest.TestCase):
         self.viewer.step()
 
         self.assertIn("waiting for Herdr", self.display.titles[-1])
-        self.assertIn("layer limit", self.display.titles[-1])
+        self.assertIn("cell size is unknown", self.display.titles[-1])
 
     def test_after_giving_up_a_key_or_a_resize_starts_a_new_round_of_retries(self):
         for label, nudge in {"key": lambda: self.viewer.on_input(b"z"),"resize": self.viewer.on_resize}.items():
@@ -408,25 +394,6 @@ class ViewerTest(unittest.TestCase):
 
                 self.assertEqual(len(self.display.main_frames), frames + 1)
                 self.assertNotIn("cannot show images", self.display.titles[-1])
-
-    def test_a_resource_error_drops_the_thumbnails_first_then_reports_the_main_image(self):
-        limit = HerdrError("pane graphics layer limit reached", code="layer_limit")
-        self.display.thumb_error = limit
-        attempts = self.display.thumb_attempts
-        self.viewer.on_input(b"h")
-        self.viewer.step()  # the thumbnail stream is refused: thumbnails are dropped
-        self.viewer.on_input(b"h")
-        self.viewer.step()
-
-        self.assertEqual(self.display.thumb_attempts, attempts + 1)
-        self.assertEqual(self.display.thumbs_dropped, 1)
-        self.assertEqual(self.shown(), ["12.png", "11.png", "10.png"])
-        self.assertTrue(self.display.titles[-1].endswith("[no thumbnails]"))
-
-        self.display.main_error = limit
-        self.viewer.on_input(b"h")
-        self.viewer.step()
-        self.assertEqual(self.display.titles[-1], "image unavailable: pane graphics layer limit reached")
 
 
 if __name__ == "__main__":

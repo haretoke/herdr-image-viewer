@@ -8,7 +8,7 @@ from . import composite, herdr_api, imaging, layout, limits, png, safety
 
 MAIN_CACHE_ENTRIES = 8
 REFIT_DELAYS = (0.3, 1.0)
-RETRY_DELAYS = (1, 2, 4, 8, 16, 30)  # after a lost stream; then give up
+RETRY_DELAYS = (1, 2, 4, 8, 16, 30)  # after a failed draw; then give up
 
 
 @dataclass(frozen=True)
@@ -177,9 +177,6 @@ class Viewer:
         if entries != self.selection.entries:  # a publish (or GC) changed the history
             self.selection.update(entries)
             self.dirty = True
-        reason = self.renderer.display.lost()
-        if reason is not None:
-            self.retry_later(reason)
         if self.gave_up:
             return
         if self.retry_at is not None:
@@ -195,20 +192,19 @@ class Viewer:
             try:
                 self.renderer.draw(self.selection, self.read_pane())
             except herdr_api.HerdrError as error:
-                unavailable = f"image unavailable: {safety.display_text(str(error))}" if error.resource else None
-                self.retry_later(str(error), title=unavailable)
+                self.retry_later(str(error))
                 return
             self.dirty = False
             self.failures = 0
 
-    def retry_later(self, reason, title=None):
+    def retry_later(self, reason):
         """Redraw after the next backoff delay, or give up with a message."""
         reason = safety.display_text(reason)
         if self.failures >= len(RETRY_DELAYS):
             self.gave_up = True
             self.renderer.display.show_title(f"cannot show images: {reason} (press a key to retry)")
             return
-        self.renderer.display.show_title(title or f"waiting for Herdr: {reason}")
+        self.renderer.display.show_title(f"waiting for Herdr: {reason}")
         self.retry_at = self.clock() + RETRY_DELAYS[self.failures]
         self.failures += 1
 
@@ -249,7 +245,6 @@ class Renderer:
         self.thumb_cache_size = 0
         self.thumb_cache_bytes = thumb_cache_bytes
         self.sent = {}  # what each frame last showed, to skip identical re-sends
-        self.thumbs_enabled = True
 
     def invalidate(self):
         """Forget what was sent, so the next draw sends every frame again."""
@@ -259,8 +254,6 @@ class Renderer:
         result = layout.compute(pane.cols, pane.rows, pane.cell_w, pane.cell_h, len(selection.entries))
         if result is None:
             return
-        if not self.thumbs_enabled:
-            result = layout.Layout(main=layout.Rect(col=0, row=1, cols=pane.cols, rows=pane.rows - 1), grid=None)
         self.grid = result.grid
         current = selection.current()
         if current is None:  # an empty history, or one GC removed
@@ -290,15 +283,7 @@ class Renderer:
                 self.sent["main"] = ("unavailable", current.sha256)
             title = f"{selection.label()} unavailable: {safety.display_text(str(error))}"
         if result.grid is not None:
-            try:
-                self.draw_thumbs(selection, result.grid, pane)
-            except herdr_api.HerdrError as error:
-                if not error.resource:
-                    raise
-                # Out of layers or graphics memory: keep the main image, drop thumbnails.
-                self.thumbs_enabled = False
-                self.display.drop_thumbs()
-        title += "" if self.thumbs_enabled else " [no thumbnails]"
+            self.draw_thumbs(selection, result.grid, pane)
         if title != self.sent.get("title"):
             self.display.show_title(title)
             self.sent["title"] = title

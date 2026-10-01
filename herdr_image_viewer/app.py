@@ -102,12 +102,6 @@ class KittyDisplay:
     def clear_thumbs(self):
         self.terminal.write(kitty.delete(self.THUMBS[0]))
 
-    def drop_thumbs(self):
-        self.clear_thumbs()
-
-    def lost(self):
-        return None  # writing to the pane cannot lose a stream
-
     def show_title(self, text):
         self.terminal.show_title(text)
 

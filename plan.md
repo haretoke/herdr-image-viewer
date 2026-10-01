@@ -368,7 +368,7 @@ graphics (Herdr 0.9.2 removed `pane.graphics.*`).
 - [x] the viewer process draws the main image and the composite as Kitty images in its own pane and deletes both when it exits
 - [x] without a pixel size (no client attached) the viewer says it is waiting for Herdr, and draws once a resize brings one
 
-Cleanup once the viewer draws with Kitty (structural, no behavior change):
+Cleanup once the viewer draws with Kitty (structural, no behavior change; done):
 remove `GraphicsStream` and its tests, `HerdrDisplay`, the fake server's
 graphics handling, `MAX_STREAM_FRAME_BYTES`, and the resource-error path
 (`RESOURCE_CODES`, dropping thumbnails), which nothing can trigger any more;
@@ -386,7 +386,9 @@ the lost-stream retry test becomes a failed-draw retry test.
 - [x] a move blocked at an end sends nothing
 - [x] SIGWINCH bursts are debounced (fake clock) and identical frames are not re-sent
 - [x] a viewer started with a stale pty size re-fits after the next SIGWINCH
-- [x] a lost stream is restored without input, with backoff, and gives up with a message
+- [x] a failed draw is retried without input, with backoff, and gives up with a message
+      (until 0.9.1 this was a lost graphics stream; since the Kitty switch the
+      failure is a missing cell size)
 - [x] while a draw is retried, the title says what the viewer is waiting for
 - [x] after giving up, a key press or a resize starts a new round of retries
       (2026-09-24, end-to-end smoke in a session without a client: the
@@ -394,7 +396,9 @@ the lost-stream retry test becomes a failed-draw retry test.
       unavailable", so the pane stayed blank through the backoff and the
       viewer would have given up for good; a client attaching later resizes
       the pane)
-- [x] a resource error drops the thumbnails first and then reports the main image as unavailable
+- [x] ~~a resource error drops the thumbnails first and then reports the main image as unavailable~~
+      (removed with the stream: Kitty images in the viewer's own pane have no
+      layer or graphics-memory errors to react to)
 - [x] q, SIGTERM, SIGHUP, and EOF exit and restore the TTY
 - [x] arrow key escape sequences split across reads are parsed
 - [x] the viewer picks up a newly published image without input
