@@ -44,10 +44,16 @@ Fable; this revision applies the adopted findings and the owner's decisions.
   viewer through the open request's env, so both always use the same store.
   Viewer liveness locks and open reservations live in a `run/` directory
   outside the GC-managed history tree.
-- Rendering uses two stream layers per viewer: one `pane.graphics.stream` for
-  the main image and one for a composite of the visible thumbnails (unselected
-  dimmed, selection highlighted, baked into pixels). Streams remove their layers
-  when the viewer exits or crashes. Text is used only for the title line.
+- Rendering uses two images per viewer: the main image and a composite of the
+  visible thumbnails (unselected dimmed, selection highlighted, baked into
+  pixels). Text is used only for the title line. Since Herdr 0.9.2 removed the
+  `pane.graphics.*` API (2026-10-01), the viewer writes standard Kitty graphics
+  to its own pane: image id 1 is the main image (z 10), id 2 the composite
+  (z 20), each sent as PNG at the cell where it starts. Sending an id again
+  replaces that image and its placement; `q=2` keeps Kitty replies out of the
+  key input and `C=1` keeps the cursor still. The cell size comes from the
+  pty's pixel size. Exiting deletes both images; the pane closing removes them
+  anyway. Before 0.9.2 the same two images were `pane.graphics.stream` layers.
 - Layout by pixel aspect ratio of the pane (tall: grid below, wide: columns on
   the right); thumbnails are hidden below a minimum pane size.
 - Navigation moves over a logical grid of the whole history; the visible page is
@@ -95,17 +101,38 @@ Fable; this revision applies the adopted findings and the owner's decisions.
 | input file size | 50 MiB |
 | input pixels | 100 megapixels |
 | external conversion timeout | 20 s |
-| stream frame | 16 MiB (Herdr limit) |
-| `set` data | 512 KiB (Herdr limit, not used by the viewer) |
-| composite canvas budget | 196,608 pixels (about 590 KB of RGB per selection move; the composite is streamed, so the 512 KiB `set` limit no longer applies), reduced page capacity if exceeded |
+| composite canvas budget | 196,608 pixels (about 590 KB of RGB per selection move), reduced page capacity if exceeded |
 | thumbnail cache | 32 MiB of RGBA |
 | open reservation | 15 s |
-| stream reconnect | backoff 1 s → 30 s, then stop and report |
+| Kitty data chunk | 4096 bytes of base64 per escape sequence (the Kitty protocol's limit) |
+| draw retry | backoff 1 s → 30 s, then stop and report (e.g. no client attached, so no cell size) |
+
+The 16 MiB stream frame and 512 KiB `set` limits went away with the
+`pane.graphics.*` API in Herdr 0.9.2.
 
 When GC cannot free enough space for a new image, publish fails with a capacity
 error and keeps the existing history.
 
-## Herdr facts this design relies on (0.9.1, source 065ef9d6)
+## Herdr facts this design relies on since 0.9.2 (source 7b116c05, v0.9.3)
+
+- `pane.graphics.info`, `set`, `clear`, and `stream` answer `unknown_method`
+  (#4561); there is no replacement socket image API. Applications and plugins
+  write standard Kitty graphics to their pane, which Herdr parses with its
+  vendored libghostty-vt and renders in the client (temporary files for a local
+  Ghostty, inline otherwise, including remote servers).
+- In libghostty-vt, transmitting an image with an existing id replaces it and
+  deletes all of its old placements; `q=2` suppresses every reply; `C=1` keeps
+  the cursor where it was; chunked data (`m=1` ... `m=0`) is assembled before
+  the image is used. `ESC [ 2 J` deletes the visible placements.
+- A pane answers the Kitty query `a=q` with `OK` even without a client. On Unix
+  the pane's pty carries `ws_xpixel = cols * cell width` and
+  `ws_ypixel = rows * cell height` while a client is attached (0.9.1 already
+  did this); without a client both are 0.
+- Pane environment: `TERM=xterm-256color`, `TERM_PROGRAM=herdr`.
+
+## Herdr facts this design relied on up to 0.9.1 (source 065ef9d6)
+
+The `pane.graphics` items below no longer apply from 0.9.2.
 
 - `pane.graphics.set` draws pixels 1:1 and crops to the placement; it never
   scales. It accepts at most 512 KiB of decoded image data.
@@ -163,19 +190,21 @@ error and keeps the existing history.
   never start an external converter.
 - `layout`: pure functions from pty size and cell pixel size to the main image
   rectangle, the thumbnail cells, the page window, and spatial moves.
-- `herdr_api`: socket requests and a graphics stream that detects rejection or
-  EOF even between frames.
+- `herdr_api`: socket requests (the launcher's `plugin.pane.open`). Up to
+  0.9.1 it also held the graphics stream.
+- `kitty`: pure functions producing the Kitty escape sequences (transmit and
+  place a PNG at a cell, delete an image) and reading the cell size from the
+  pty's pixel size.
 - `launcher`: at most one live viewer per conversation: a liveness lock held by
   the running viewer, a time-limited open reservation, a registration with a
   start token so an old viewer never unregisters a newer one; a viewer that
   cannot take the liveness lock exits before drawing.
 - `viewer`: the pane process. Input and drawing are separated; repeated keys and
   SIGWINCH bursts coalesce into one redraw of the latest state (debounce driven
-  by an injectable clock). Identical frames are not re-sent. The viewer decides
-  how to degrade (drop thumbnails, then report that the main image cannot be
-  shown) and restores the current frame after a lost stream without waiting for
-  input. It notices when its conversation was removed by GC and shows an empty
-  view.
+  by an injectable clock). Identical frames are not re-sent. A draw that
+  cannot happen yet (no cell size while no client is attached) is retried with
+  backoff and reported in the title. It notices when its conversation was
+  removed by GC and shows an empty view.
 - `cli`: `publish <image> --conversation <key> --caller-pane <id>`, `viewer`,
   `gc`, and `open` (the action: the last conversation published from the
   focused pane, recorded by `publish` under `run/`).
@@ -327,6 +356,23 @@ checks at the end.
 - [x] a rejected frame is reported and closes the stream
 - [x] an EOF between frames is noticed without sending a frame
 - [x] frames respect 16 MiB (limit -1/0/+1)
+
+The four tests above go with the stream when the viewer moves to Kitty
+graphics (Herdr 0.9.2 removed `pane.graphics.*`).
+
+### kitty display (Herdr 0.9.2 removed `pane.graphics.*`, 2026-10-01)
+- [ ] a PNG is placed at its cell as one Kitty escape: the cursor moves to the cell, then `a=T,f=100,i=<id>,z=<z>,C=1,q=2`
+- [ ] PNG data longer than one chunk is split into 4096-byte base64 chunks, `m=1` on all but the last
+- [ ] deleting an image frees it by id (`a=d,d=I,i=<id>,q=2`)
+- [ ] the cell size is the pty's pixel size divided by its cells, and unknown while the pixel size is 0
+- [ ] the viewer process draws the main image and the composite as Kitty images in its own pane and deletes both when it exits
+- [ ] without a pixel size (no client attached) the viewer says it is waiting for Herdr, and draws once a resize brings one
+
+Cleanup once the viewer draws with Kitty (structural, no behavior change):
+remove `GraphicsStream` and its tests, `HerdrDisplay`, the fake server's
+graphics handling, `MAX_STREAM_FRAME_BYTES`, and the resource-error path
+(`RESOURCE_CODES`, dropping thumbnails), which nothing can trigger any more;
+the lost-stream retry test becomes a failed-draw retry test.
 
 ### viewer (fake clock, PTY)
 - [x] on start the viewer shows the newest entry and a "n/N name WxH" title
