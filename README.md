@@ -12,6 +12,9 @@ highlighted.
 - Thumbnails sit below the image in a tall pane and to its right in a wide one.
 - Images are copied into the plugin's state directory, so they stay viewable
   after the original file is gone.
+- The viewer draws with the standard Kitty graphics protocol in its own pane,
+  which Herdr renders (on by default; `[terminal] kitty_graphics = false` turns
+  it off). Herdr 0.9.2 removed the pane graphics API that 0.2.0 used.
 
 Status: early (0.2.0). The tests run on macOS and in a Linux container; built
 against Herdr 0.9.1.
