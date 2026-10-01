@@ -11,7 +11,7 @@ import tty
 import uuid
 from pathlib import Path
 
-from . import composite, herdr_api, imaging, launcher, logfile, safety, state
+from . import composite, herdr_api, imaging, kitty, launcher, logfile, safety, state
 from .store import Store
 from .viewer import Pane, Renderer, Viewer
 
@@ -107,6 +107,53 @@ class HerdrDisplay:
     def close(self):
         self.main.close()
         self.thumbs.close()
+
+
+class KittyDisplay:
+    """The main image and the thumbnails as Kitty images in the viewer's own pane
+    (Herdr 0.9.2 removed the pane.graphics API the HerdrDisplay used)."""
+
+    MAIN = (1, 10)  # image id, z-index
+    THUMBS = (2, 20)
+
+    def __init__(self, terminal):
+        self.terminal = terminal
+
+    def cell_size(self):
+        size = kitty.cell_size(self.terminal.stdout.fileno())
+        if size is None:
+            raise herdr_api.HerdrError("the cell size is unknown until a Herdr client is attached")
+        return size
+
+    def send(self, image, data, placement):
+        image_id, z_index = image
+        self.terminal.write(kitty.transmit(image_id, z_index, placement["viewport_col"],
+                                           placement["viewport_row"], data))
+
+    def send_main(self, data, width, height, placement):
+        self.send(self.MAIN, data, placement)
+
+    def send_thumbs(self, data, width, height, placement):
+        self.send(self.THUMBS, data, placement)
+
+    def clear_main(self):
+        self.terminal.write(kitty.delete(self.MAIN[0]))
+
+    def clear_thumbs(self):
+        self.terminal.write(kitty.delete(self.THUMBS[0]))
+
+    def drop_thumbs(self):
+        self.clear_thumbs()
+
+    def lost(self):
+        return None  # writing to the pane cannot lose a stream
+
+    def show_title(self, text):
+        self.terminal.show_title(text)
+
+    def close(self):
+        self.clear_main()
+        self.clear_thumbs()
 
 
 class StoreImages:
@@ -207,7 +254,7 @@ def run_viewer(environ, root):
 def show(environ, root, key):
     store = Store(root)
     terminal = Terminal()
-    display = HerdrDisplay(environ["HERDR_SOCKET_PATH"], environ["HERDR_PANE_ID"], terminal)
+    display = KittyDisplay(terminal)
 
     def read_pane():
         cols, rows = terminal.size()
@@ -216,9 +263,9 @@ def show(environ, root, key):
 
     viewer = Viewer(Renderer(display, StoreImages(store, key)), lambda: store.history(key), read_pane,
                     lambda entry: store.remove(key, entry.sha256))
-    try:
-        with terminal:
+    with terminal:
+        try:
             run(viewer, terminal)
-    finally:
-        display.close()
+        finally:
+            display.close()  # on the alternate screen, where the images are
     return 0

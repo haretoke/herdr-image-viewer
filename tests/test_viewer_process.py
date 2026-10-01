@@ -21,6 +21,9 @@ from herdr_image_viewer.store import Store
 from tests.test_imaging import FAKE_TOOL
 
 REPOSITORY = Path(__file__).resolve().parents[1]
+PIXELS = (800, 480)  # 10x20 pixel cells on the 24x80 pty
+SHOW_MAIN = b"\x1b_Ga=T,f=100,i=1,z=10,C=1,q=2"
+DELETE_MAIN = b"\x1b_Ga=d,d=I,i=1,q=2\x1b\\"
 
 
 class FakeHerdrServer:
@@ -109,12 +112,13 @@ class ViewerProcessTest(unittest.TestCase):
     def tearDown(self):
         self.directory.cleanup()
 
-    def start(self, **env_changes):
-        """The viewer on the slave side of a 24x80 pty. subprocess instead of
-        pty.fork: forking a process that runs the fake server's threads is unsafe.
-        env_changes set variables, or remove them when None."""
+    def start(self, pixels=(0, 0), **env_changes):
+        """The viewer on the slave side of a 24x80 pty with the given pixel size.
+        subprocess instead of pty.fork: forking a process that runs the fake
+        server's threads is unsafe. env_changes set variables, or remove them
+        when None."""
         master, slave = os.openpty()
-        fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 80, 0, 0))
+        fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 80, *pixels))
         env = {
             "PATH": str(self.bin),
             "FAKE_LOG": os.devnull,
@@ -149,6 +153,14 @@ class ViewerProcessTest(unittest.TestCase):
                     return
                 self.output += chunk
 
+    def wait_output(self, master, needle, timeout=10):
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if needle in self.output:
+                return True
+            self.drain(master, 0.05)
+        return False
+
     def wait_exit(self, process, master, timeout=10):
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
@@ -157,15 +169,29 @@ class ViewerProcessTest(unittest.TestCase):
                 return process.returncode
         self.fail("the viewer did not exit")
 
-    def test_q_exits_closes_its_layers_and_restores_the_terminal(self):
-        process, master = self.start()
-        self.assertTrue(self.herdr.wait_for(("frame", "main")), self.herdr.events)
+    def test_the_viewer_draws_kitty_images_in_its_own_pane_and_deletes_them_on_exit(self):
+        process, master = self.start(pixels=PIXELS)
+        self.assertTrue(self.wait_output(master, SHOW_MAIN), self.output[-300:])
+
+        os.write(master, b"q")
+
+        self.assertEqual(self.wait_exit(process, master), 0)
+        deleted_main = self.output.find(DELETE_MAIN)
+        deleted_thumbs = self.output.find(b"\x1b_Ga=d,d=I,i=2,q=2\x1b\\")
+        left_alternate_screen = self.output.find(b"\x1b[?1049l")
+        self.assertGreater(deleted_main, 0)
+        self.assertGreater(deleted_thumbs, 0)
+        self.assertLess(max(deleted_main, deleted_thumbs), left_alternate_screen)  # still on its screen
+        self.assertEqual(self.herdr.events, [])  # nothing goes through the socket
+
+    def test_q_exits_and_restores_the_terminal(self):
+        process, master = self.start(pixels=PIXELS)
+        self.assertTrue(self.wait_output(master, SHOW_MAIN), self.output[-300:])
         self.drain(master, 0.3)
 
         os.write(master, b"q")
 
         self.assertEqual(self.wait_exit(process, master), 0)
-        self.assertTrue(self.herdr.wait_for(("closed", "main")), self.herdr.events)
         self.assertIn(b"\x1b[?1049h", self.output)  # alternate screen entered
         self.assertIn(b"\x1b[?1049l", self.output)  # and left
         self.assertIn(b"\x1b[?25h", self.output)  # cursor shown again
@@ -174,15 +200,14 @@ class ViewerProcessTest(unittest.TestCase):
     def test_x_removes_the_image_from_the_store_and_the_next_publish_shows_again(self):
         store = Store(self.store_root)
         shot = store.history("claude:s1")[0]
-        process, master = self.start()
-        self.assertTrue(self.herdr.wait_for(("frame", "main")), self.herdr.events)
+        process, master = self.start(pixels=PIXELS)
+        self.assertTrue(self.wait_output(master, SHOW_MAIN), self.output[-300:])
         self.drain(master, 0.3)
 
         os.write(master, b"x")
 
-        self.assertTrue(self.herdr.wait_for(("closed", "main")), self.herdr.events)
-        self.drain(master, 0.5)
-        self.assertIn(b"no images yet", self.output)
+        self.assertTrue(self.wait_output(master, DELETE_MAIN), self.output[-300:])
+        self.assertTrue(self.wait_output(master, b"no images yet"), self.output[-300:])
         self.assertEqual(store.history("claude:s1"), [])
         self.assertFalse(store.archive_path("claude:s1", shot).exists())
 
@@ -190,7 +215,8 @@ class ViewerProcessTest(unittest.TestCase):
         source.write_bytes(png.encode_rgb(40, 20, b"\x30\x20\x10" * 800))
         store.publish("claude:s1", source)
 
-        self.assertTrue(self.herdr.wait_for(("frame", "main"), count=2), self.herdr.events)
+        self.assertTrue(self.wait_output(master, b"1/1 next.png 40x20"), self.output[-300:])
+        self.assertEqual(self.output.count(SHOW_MAIN), 2)
         os.write(master, b"q")
         self.assertEqual(self.wait_exit(process, master), 0)
         self.assertIn(b"1/1 next.png 40x20", self.output)
@@ -201,14 +227,14 @@ class ViewerProcessTest(unittest.TestCase):
             with self.subTest(signal=signum.name):
                 self.herdr.events.clear()
                 self.output = b""
-                process, master = self.start()
-                self.assertTrue(self.herdr.wait_for(("frame", "main")), self.herdr.events)
+                process, master = self.start(pixels=PIXELS)
+                self.assertTrue(self.wait_output(master, SHOW_MAIN), self.output[-300:])
                 self.drain(master, 0.3)
 
                 process.send_signal(signum)
 
                 self.assertEqual(self.wait_exit(process, master), 0)
-                self.assertTrue(self.herdr.wait_for(("closed", "main")), self.herdr.events)
+                self.assertIn(DELETE_MAIN, self.output)
                 self.assertIn(b"\x1b[?1049l", self.output)
                 os.close(master)
 
@@ -253,8 +279,8 @@ class ViewerProcessTest(unittest.TestCase):
         self.assertFalse((self.store_root / "viewer.log").exists())
 
     def test_the_pane_going_away_ends_the_viewer(self):
-        process, master = self.start()
-        self.assertTrue(self.herdr.wait_for(("frame", "main")), self.herdr.events)
+        process, master = self.start(pixels=PIXELS)
+        self.assertTrue(self.wait_output(master, SHOW_MAIN), self.output[-300:])
         self.drain(master, 0.3)
 
         os.close(master)  # EOF / EIO on the viewer's terminal
@@ -263,7 +289,6 @@ class ViewerProcessTest(unittest.TestCase):
             process.wait(timeout=10)
         except subprocess.TimeoutExpired:
             self.fail("the viewer did not exit")
-        self.assertTrue(self.herdr.wait_for(("closed", "main")), self.herdr.events)
 
 
 if __name__ == "__main__":
